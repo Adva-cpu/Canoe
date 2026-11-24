@@ -782,6 +782,7 @@
     document.getElementById("newStudentName").value = "";
     saveState();
     renderSettings();
+    renderJournal();
   }
 
   function deleteStudent(studentId) {
@@ -790,6 +791,7 @@
     group.students = group.students.filter(s => s.id !== studentId);
     saveState();
     renderSettings();
+    renderJournal();
   }
 
   function addGroup() {
@@ -885,6 +887,26 @@
   currentSessionIndex = initGroup ? Math.max(0, initGroup.sessions.length - 1) : 0;
   renderAll();
   loadFromCloud();
+  // Автоматически подтягивать свежие данные при возврате в Telegram
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      loadFromCloud();
+    }
+  });
+
+  // Мгновенная синхронизация в реальном времени между телефоном и ПК
+  db.channel("canoe-sync")
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_state", filter: `id=eq.${RECORD_ID}` }, payload => {
+      if (payload.new && payload.new.data) {
+        state = payload.new.data;
+        localStorage.setItem("canoe_app_cache", JSON.stringify(state));
+        renderAll();
+        if (!document.getElementById("tab-settings").classList.contains("hidden")) renderSettings();
+        if (!document.getElementById("tab-report").classList.contains("hidden")) renderReport();
+        setSyncStatus("☁️ Обновлено", "var(--green)");
+      }
+    })
+    .subscribe();
 </script>
 </body>
 </html>
