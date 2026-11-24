@@ -4,26 +4,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Журнал тренера — Гребля на каноэ</title>
-  <!-- Подключаем официальный скрипт Telegram Mini Apps -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg: var(--tg-theme-bg-color, #f4f6f9);
-      --card: var(--tg-theme-secondary-bg-color, #ffffff);
-      --text: var(--tg-theme-text-color, #1c1e21);
-      --hint: var(--tg-theme-hint-color, #707579);
-      --accent: var(--tg-theme-button-color, #007aff);
-      --accent-text: var(--tg-theme-button-text-color, #ffffff);
-      --border: rgba(0, 0, 0, 0.08);
-      --green: #28a745;
-      --red: #dc3545;
-      --orange: #fd7e14;
+      --bg: #0f1115;
+      --card: #181b22;
+      --card-hover: #20242e;
+      --text: #f0f2f5;
+      --hint: #8b949e;
+      --accent: #3b82f6;
+      --accent-text: #ffffff;
+      --border: rgba(255, 255, 255, 0.08);
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f59e0b;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       margin: 0;
-      padding: 0 0 76px 0;
+      padding: 0 0 80px 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -42,7 +42,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .app-title {
       font-weight: 700;
@@ -59,6 +59,7 @@
       padding: 6px 10px;
       font-weight: 600;
       font-size: 14px;
+      outline: none;
     }
 
     /* Вкладки групп */
@@ -80,6 +81,7 @@
       white-space: nowrap;
       border: 1px solid var(--border);
       cursor: pointer;
+      transition: 0.15s;
     }
     .group-chip.active {
       background: var(--accent);
@@ -88,7 +90,7 @@
     }
     .group-badge {
       font-size: 11px;
-      opacity: 0.8;
+      opacity: 0.75;
       font-weight: 400;
       margin-left: 4px;
     }
@@ -98,11 +100,11 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 16px;
+      padding: 12px 14px;
       background: var(--card);
-      margin: 10px 12px;
+      margin: 12px;
       border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      border: 1px solid var(--border);
     }
     .date-nav {
       display: flex;
@@ -111,25 +113,22 @@
     }
     .icon-btn {
       background: var(--bg);
-      border: none;
+      border: 1px solid var(--border);
       color: var(--text);
       width: 34px;
       height: 34px;
       border-radius: 8px;
-      font-size: 16px;
-      font-weight: bold;
+      font-size: 18px;
       cursor: pointer;
     }
-    .current-date {
-      text-align: center;
-    }
+    .current-date { text-align: center; }
     .current-date strong { display: block; font-size: 15px; }
     .current-date span { font-size: 12px; color: var(--hint); }
 
     .add-session-btn {
-      background: rgba(0, 122, 255, 0.12);
-      color: var(--accent);
-      border: none;
+      background: rgba(59, 130, 246, 0.16);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
       padding: 7px 10px;
       border-radius: 8px;
       font-size: 12px;
@@ -149,7 +148,7 @@
     .mark-all-btn {
       background: none;
       border: none;
-      color: var(--accent);
+      color: #60a5fa;
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
@@ -162,7 +161,7 @@
       background: var(--card);
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      border: 1px solid var(--border);
     }
     .student-row {
       display: flex;
@@ -174,14 +173,14 @@
       user-select: none;
     }
     .student-row:last-child { border-bottom: none; }
-    .student-row:active { background: rgba(0,0,0,0.03); }
+    .student-row:active { background: var(--card-hover); }
     .student-info { display: flex; flex-direction: column; }
     .student-name { font-size: 15px; font-weight: 500; }
     .student-meta { font-size: 12px; color: var(--hint); margin-top: 2px; }
 
     /* Чекбокс статуса */
     .status-box {
-      min-width: 92px;
+      min-width: 96px;
       height: 34px;
       border-radius: 8px;
       display: flex;
@@ -190,32 +189,25 @@
       gap: 5px;
       font-size: 13px;
       font-weight: 600;
-      border: 1.5px solid var(--border);
+      border: 1px solid var(--border);
       transition: 0.15s;
     }
     .status-none { color: var(--hint); background: var(--bg); }
-    .status-present { background: rgba(40, 167, 69, 0.14); color: var(--green); border-color: var(--green); }
-    .status-absent { background: rgba(220, 53, 69, 0.14); color: var(--red); border-color: var(--red); }
-    .status-sick { background: rgba(253, 126, 20, 0.14); color: var(--orange); border-color: var(--orange); }
+    .status-present { background: rgba(34, 197, 94, 0.15); color: var(--green); border-color: rgba(34, 197, 94, 0.4); }
+    .status-absent { background: rgba(239, 68, 68, 0.15); color: var(--red); border-color: rgba(239, 68, 68, 0.4); }
+    .status-sick { background: rgba(245, 158, 11, 0.15); color: var(--orange); border-color: rgba(245, 158, 11, 0.4); }
 
-    /* Табель (вкладка 2) */
+    /* Табель */
     .table-wrap {
       margin: 12px;
       background: var(--card);
       border-radius: 12px;
       overflow-x: auto;
       padding: 12px;
+      border: 1px solid var(--border);
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    th, td {
-      padding: 8px 6px;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--border); }
     th:first-child, td:first-child {
       text-align: left;
       position: sticky;
@@ -225,42 +217,62 @@
       min-width: 130px;
     }
 
-    /* Управление (вкладка 3) */
+    /* Управление */
     .card-box {
       margin: 12px;
       background: var(--card);
       border-radius: 12px;
       padding: 16px;
+      border: 1px solid var(--border);
     }
-    .card-box h3 { margin: 0 0 10px 0; font-size: 16px; }
-    .btn-primary {
-      width: 100%;
-      padding: 12px;
-      background: var(--accent);
-      color: var(--accent-text);
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
-    }
+    .card-box h3 { margin: 0 0 12px 0; font-size: 16px; }
+    .row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .input-field {
       width: 100%;
-      padding: 10px;
+      padding: 10px 12px;
       margin-bottom: 8px;
       border-radius: 8px;
       border: 1px solid var(--border);
       background: var(--bg);
       color: var(--text);
       font-size: 14px;
+      outline: none;
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .manage-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .manage-item:last-child { border-bottom: none; }
+    .del-btn {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
     }
 
     /* Нижнее меню */
     .bottom-nav {
       position: fixed;
       bottom: 0; left: 0; right: 0;
-      height: 62px;
+      height: 64px;
       background: var(--card);
       border-top: 1px solid var(--border);
       display: flex;
@@ -279,9 +291,9 @@
       cursor: pointer;
       gap: 3px;
     }
-    .nav-item.active { color: var(--accent); font-weight: 600; }
+    .nav-item.active { color: #60a5fa; font-weight: 600; }
     .nav-icon { font-size: 20px; }
-
+    .empty-state { padding: 24px; text-align: center; color: var(--hint); font-size: 14px; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -302,8 +314,8 @@
       <div class="date-nav">
         <button class="icon-btn" onclick="shiftSession(-1)">‹</button>
         <div class="current-date">
-          <strong id="sessionDateTitle">24 ноя (Вт)</strong>
-          <span id="sessionTypeLabel">Вода • Плановая</span>
+          <strong id="sessionDateTitle">—</strong>
+          <span id="sessionTypeLabel">—</span>
         </div>
         <button class="icon-btn" onclick="shiftSession(1)">›</button>
       </div>
@@ -311,7 +323,7 @@
     </div>
 
     <div class="actions-row">
-      <span id="statsCounter">Присутствуют: 0 из 0</span>
+      <span id="statsCounter">На тренировке: 0 из 0</span>
       <button class="mark-all-btn" onclick="markAllPresent()">✓ Отметить всех</button>
     </div>
 
@@ -323,25 +335,47 @@
     <div class="table-wrap">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <strong id="reportGroupTitle">Табель группы</strong>
-        <button class="add-session-btn" onclick="exportCSV()">📥 Скачать Excel (CSV)</button>
+        <button class="add-session-btn" onclick="exportCSV()">📥 Excel (CSV)</button>
       </div>
       <table id="reportTable"></table>
     </div>
   </div>
 
-  <!-- ВКЛАДКА 3: УПРАВЛЕНИЕ И НОВЫЙ ГОД -->
+  <!-- ВКЛАДКА 3: УПРАВЛЕНИЕ ГРУППАМИ, УЧЕНИКАМИ И ГОДОМ -->
   <div id="tab-settings" class="hidden">
+    <!-- Блок 1: Ученики -->
     <div class="card-box">
-      <h3>Добавить спортсмена в текущую группу</h3>
-      <input type="text" id="newStudentName" class="input-field" placeholder="Фамилия Имя (напр. Морозов Илья)" />
-      <input type="number" id="newStudentYear" class="input-field" placeholder="Год рождения (напр. 2013)" />
-      <button class="btn-primary" onclick="addStudent()">+ Добавить в список</button>
+      <h3 id="manageStudentsTitle">Спортсмены группы</h3>
+      <div class="row-2col">
+        <input type="text" id="newStudentName" class="input-field" placeholder="Фамилия Имя" />
+        <input type="number" id="newStudentYear" class="input-field" placeholder="Год рожд. (2014)" />
+      </div>
+      <button class="btn-primary" onclick="addStudent()">+ Добавить спортсмена</button>
+      <div id="manageStudentsList" style="margin-top: 12px;"></div>
     </div>
 
+    <!-- Блок 2: Группы -->
     <div class="card-box">
-      <h3>Переход на следующий учебный год</h3>
+      <h3>Группы учебного года (<span id="manageYearLabel"></span>)</h3>
+      <input type="text" id="newGroupName" class="input-field" placeholder="Название (напр. НП-2 или УТГ-3)" />
+      <div class="row-2col">
+        <select id="newGroupFreq" class="input-field">
+          <option value="3 тр/нед">3 тренировки/нед (НП)</option>
+          <option value="4 тр/нед">4 тренировки/нед (УТГ)</option>
+          <option value="5 тр/нед">5 тренировок/нед (УТГ)</option>
+          <option value="6 тр/нед">6 тренировок/нед (УТГ)</option>
+        </select>
+        <input type="text" id="newGroupDays" class="input-field" placeholder="Дни (Пн, Ср, Пт)" />
+      </div>
+      <button class="btn-primary" onclick="addGroup()">+ Создать группу</button>
+      <div id="manageGroupsList" style="margin-top: 12px;"></div>
+    </div>
+
+    <!-- Блок 3: Новый учебный год -->
+    <div class="card-box">
+      <h3>Новый учебный год</h3>
       <p style="font-size:13px; color:var(--hint); margin-top:0;">
-        Создаст новый учебный год, автоматически переведет группы на следующую ступень (НП-1 → НП-2, УТГ-2 → УТГ-3) и перенесет состав спортсменов. Архив останется доступным.
+        Создаст следующий учебный год, переведет группы на ступень выше (НП-1 → НП-2) и скопирует списки спортсменов.
       </p>
       <button class="btn-primary" onclick="createNextAcademicYear()">📅 Начать новый учебный год</button>
     </div>
@@ -364,14 +398,14 @@
   </div>
 
 <script>
-  // Инициализация Telegram WebApp
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready();
     tg.expand();
+    tg.setHeaderColor("#181b22");
+    tg.setBackgroundColor("#0f1115");
   }
 
-  // Начальные демо-данные (сохраняются в localStorage браузера)
   const defaultData = {
     activeYear: "2026–2027",
     years: {
@@ -385,13 +419,11 @@
               { id: "s1", name: "Волков Артем", birth: 2015 },
               { id: "s2", name: "Громова Алиса", birth: 2015 },
               { id: "s3", name: "Зайцев Максим", birth: 2014 },
-              { id: "s4", name: "Киселев Даниил", birth: 2015 },
-              { id: "s5", name: "Орлова София", birth: 2014 }
+              { id: "s4", name: "Киселев Даниил", birth: 2015 }
             ],
             sessions: [
-              { id: "ses1", date: "18 ноя (Ср)", type: "Бассейн / ОФП", marks: { s1: "present", s2: "present", s3: "absent", s4: "present", s5: "present" } },
-              { id: "ses2", date: "20 ноя (Пт)", type: "Гребной тренажер", marks: { s1: "present", s2: "sick", s3: "present", s4: "present", s5: "present" } },
-              { id: "ses3", date: "23 ноя (Пн)", type: "Зал ОФП", marks: { s1: "present", s2: "present", s3: "present", s4: "absent", s5: "present" } }
+              { id: "ses1", date: "23 ноя (Пн)", type: "Бассейн / ОФП", marks: { s1: "present", s2: "present", s3: "absent", s4: "present" } },
+              { id: "ses2", date: "25 ноя (Ср)", type: "Зал ОФП", marks: { s1: "present", s2: "sick", s3: "present", s4: "present" } }
             ]
           },
           {
@@ -401,12 +433,10 @@
             students: [
               { id: "u1", name: "Белов Кирилл", birth: 2011 },
               { id: "u2", name: "Дроздов Егор", birth: 2010 },
-              { id: "u3", name: "Лебедева Дарья", birth: 2011 },
-              { id: "u4", name: "Соколов Никита", birth: 2010 }
+              { id: "u3", name: "Лебедева Дарья", birth: 2011 }
             ],
             sessions: [
-              { id: "uses1", date: "23 ноя (Пн)", type: "Вода • 8 км", marks: { u1: "present", u2: "present", u3: "present", u4: "present" } },
-              { id: "uses2", date: "24 ноя (Вт)", type: "Зал • Штанга", marks: { u1: "present", u2: "absent", u3: "present", u4: "present" } }
+              { id: "uses1", date: "24 ноя (Вт)", type: "Вода • 8 км", marks: { u1: "present", u2: "present", u3: "present" } }
             ]
           }
         ]
@@ -414,27 +444,39 @@
     }
   };
 
-  let state = JSON.parse(localStorage.getItem("canoe_app_v1")) || defaultData;
+  let state = JSON.parse(localStorage.getItem("canoe_app_dark_v1")) || defaultData;
   let currentGroupIndex = 0;
   let currentSessionIndex = 0;
 
   function saveState() {
-    localStorage.setItem("canoe_app_v1", JSON.stringify(state));
+    localStorage.setItem("canoe_app_dark_v1", JSON.stringify(state));
+  }
+
+  function getGroups() {
+    return state.years[state.activeYear].groups;
   }
 
   function getCurrentGroup() {
-    return state.years[state.activeYear].groups[currentGroupIndex];
+    const groups = getGroups();
+    if (!groups.length) return null;
+    if (currentGroupIndex >= groups.length) currentGroupIndex = 0;
+    return groups[currentGroupIndex];
   }
 
-  // Отрисовка шапки и групп
+  // Шапка и чипсы групп
   function renderHeader() {
     const yearSelect = document.getElementById("yearSelect");
     yearSelect.innerHTML = Object.keys(state.years).map(y =>
       `<option value="${y}" ${y === state.activeYear ? "selected" : ""}>${y}</option>`
     ).join("");
 
-    const groups = state.years[state.activeYear].groups;
+    const groups = getGroups();
     const container = document.getElementById("groupsContainer");
+    if (!groups.length) {
+      container.innerHTML = `<span style="font-size:13px; color:var(--hint);">Нет групп — создайте во вкладке «Управление»</span>`;
+      return;
+    }
+
     container.innerHTML = groups.map((g, idx) => `
       <div class="group-chip ${idx === currentGroupIndex ? "active" : ""}" onclick="selectGroup(${idx})">
         ${g.name} <span class="group-badge">${g.scheduleText.split(" ")[0]} тр.</span>
@@ -445,31 +487,46 @@
   function changeYear(year) {
     state.activeYear = year;
     currentGroupIndex = 0;
-    currentSessionIndex = state.years[year].groups[0].sessions.length - 1;
+    const g = getCurrentGroup();
+    currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
     renderAll();
   }
 
   function selectGroup(idx) {
     currentGroupIndex = idx;
-    const group = getCurrentGroup();
-    currentSessionIndex = Math.max(0, group.sessions.length - 1);
+    const g = getCurrentGroup();
+    currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
     renderAll();
   }
 
-  // Отрисовка списка учеников и отметки
+  // Журнал посещаемости
   function renderJournal() {
     const group = getCurrentGroup();
-    const session = group.sessions[currentSessionIndex];
+    const listEl = document.getElementById("studentList");
 
+    if (!group) {
+      document.getElementById("sessionDateTitle").innerText = "Нет групп";
+      document.getElementById("sessionTypeLabel").innerText = "Создайте группу в настройках";
+      listEl.innerHTML = `<div class="empty-state">Перейдите в «Управление» и создайте первую группу</div>`;
+      return;
+    }
+
+    const session = group.sessions[currentSessionIndex];
     document.getElementById("sessionDateTitle").innerText = session.date;
     document.getElementById("sessionTypeLabel").innerText = `${session.type} • ${group.scheduleText}`;
 
+    if (!group.students.length) {
+      document.getElementById("statsCounter").innerText = "В группе пока нет участников";
+      listEl.innerHTML = `<div class="empty-state">Добавьте спортсменов во вкладке «Управление»</div>`;
+      return;
+    }
+
     let presentCount = 0;
-    const listHtml = group.students.map(st => {
+    listEl.innerHTML = group.students.map(st => {
       const status = session.marks[st.id] || "none";
       if (status === "present") presentCount++;
 
-      const statusConfig = {
+      const cfg = {
         none: { label: "Не отмечен", icon: "⬜", cls: "status-none" },
         present: { label: "Был", icon: "✅", cls: "status-present" },
         absent: { label: "Не был", icon: "❌", cls: "status-absent" },
@@ -482,35 +539,32 @@
             <span class="student-name">${st.name}</span>
             <span class="student-meta">${st.birth} г.р.</span>
           </div>
-          <div class="status-box ${statusConfig.cls}">
-            <span>${statusConfig.icon}</span>
-            <span>${statusConfig.label}</span>
+          <div class="status-box ${cfg.cls}">
+            <span>${cfg.icon}</span>
+            <span>${cfg.label}</span>
           </div>
         </div>
       `;
     }).join("");
 
-    document.getElementById("studentList").innerHTML = listHtml;
     document.getElementById("statsCounter").innerText = `На тренировке: ${presentCount} из ${group.students.length}`;
   }
 
-  // Переключение статуса по кругу
   function toggleStatus(studentId) {
     const group = getCurrentGroup();
     const session = group.sessions[currentSessionIndex];
     const order = ["none", "present", "absent", "sick"];
     const current = session.marks[studentId] || "none";
-    const next = order[(order.indexOf(current) + 1) % order.length];
-    session.marks[studentId] = next;
+    session.marks[studentId] = order[(order.indexOf(current) + 1) % order.length];
 
     if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
     saveState();
     renderJournal();
   }
 
-  // Отметить всех сразу
   function markAllPresent() {
     const group = getCurrentGroup();
+    if (!group || !group.students.length) return;
     const session = group.sessions[currentSessionIndex];
     group.students.forEach(st => session.marks[st.id] = "present");
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
@@ -518,9 +572,9 @@
     renderJournal();
   }
 
-  // Листание дней
   function shiftSession(dir) {
     const group = getCurrentGroup();
+    if (!group) return;
     const nextIdx = currentSessionIndex + dir;
     if (nextIdx >= 0 && nextIdx < group.sessions.length) {
       currentSessionIndex = nextIdx;
@@ -528,13 +582,13 @@
     }
   }
 
-  // Добавить внеплановую тренировку (актуально для УТГ)
   function addExtraSession() {
-    const dateStr = prompt("Введите дату тренировки (например: 25 ноя (Ср)):", "25 ноя (Ср)");
-    if (!dateStr) return;
-    const typeStr = prompt("Тип тренировки (Вода / Зал / Бассейн):", "Вода • 10 км") || "Тренировка";
-
     const group = getCurrentGroup();
+    if (!group) return alert("Сначала создайте группу");
+    const dateStr = prompt("Дата тренировки (напр. 26 ноя (Чт)):", "26 ноя (Чт)");
+    if (!dateStr) return;
+    const typeStr = prompt("Место / вид (Вода, Зал, Бассейн):", "Вода • 10 км") || "Тренировка";
+
     group.sessions.push({
       id: "ses_" + Date.now(),
       date: dateStr,
@@ -546,13 +600,14 @@
     renderJournal();
   }
 
-  // Отрисовка сводного табеля
+  // Табель
   function renderReport() {
     const group = getCurrentGroup();
+    if (!group) return;
     document.getElementById("reportGroupTitle").innerText = `Табель: ${group.name} (${state.activeYear})`;
 
     let thead = `<tr><th>Спортсмен</th>` +
-      group.sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1]}</small></th>`).join("") +
+      group.sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1] || ""}</small></th>`).join("") +
       `<th>%</th></tr>`;
 
     let tbody = group.students.map(st => {
@@ -571,9 +626,9 @@
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
-  // Экспорт в CSV (открывается в Excel)
   function exportCSV() {
     const group = getCurrentGroup();
+    if (!group) return;
     let csv = "\uFEFFСпортсмен;" + group.sessions.map(s => s.date).join(";") + "\n";
     group.students.forEach(st => {
       const row = group.sessions.map(s => {
@@ -590,31 +645,111 @@
     link.click();
   }
 
-  // Добавление ученика
+  // Управление группами и спортсменами
+  function renderSettings() {
+    document.getElementById("manageYearLabel").innerText = state.activeYear;
+    const group = getCurrentGroup();
+
+    // Список спортсменов текущей группы
+    const stContainer = document.getElementById("manageStudentsList");
+    if (group) {
+      document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
+      stContainer.innerHTML = group.students.length
+        ? group.students.map(st => `
+            <div class="manage-item">
+              <span>${st.name} <small style="color:var(--hint)">(${st.birth} г.р.)</small></span>
+              <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
+            </div>
+          `).join("")
+        : `<div style="font-size:13px; color:var(--hint);">Список пуст</div>`;
+    } else {
+      document.getElementById("manageStudentsTitle").innerText = "Спортсмены (сначала создайте группу)";
+      stContainer.innerHTML = "";
+    }
+
+    // Список групп текущего года
+    const groups = getGroups();
+    document.getElementById("manageGroupsList").innerHTML = groups.map((g, idx) => `
+      <div class="manage-item">
+        <div>
+          <strong>${g.name}</strong>
+          <div style="font-size:12px; color:var(--hint)">${g.scheduleText} • ${g.students.length} чел.</div>
+        </div>
+        <button class="del-btn" onclick="deleteGroup(${idx})">Удалить</button>
+      </div>
+    `).join("");
+  }
+
   function addStudent() {
+    const group = getCurrentGroup();
+    if (!group) return alert("Сначала создайте группу");
     const name = document.getElementById("newStudentName").value.trim();
     const birth = document.getElementById("newStudentYear").value.trim() || "2014";
     if (!name) return alert("Введите ФИО спортсмена");
 
-    const group = getCurrentGroup();
     group.students.push({ id: "st_" + Date.now(), name, birth });
+    group.students.sort((a, b) => a.name.localeCompare(b.name)); // Сортировка по алфавиту
     document.getElementById("newStudentName").value = "";
     saveState();
-    alert(`Спортсмен ${name} добавлен в группу ${group.name}`);
+    renderSettings();
   }
 
-  // Автоматический переход на новый учебный год
+  function deleteStudent(studentId) {
+    const group = getCurrentGroup();
+    if (!confirm("Удалить спортсмена из группы?")) return;
+    group.students = group.students.filter(s => s.id !== studentId);
+    saveState();
+    renderSettings();
+  }
+
+  function addGroup() {
+    const name = document.getElementById("newGroupName").value.trim();
+    const freq = document.getElementById("newGroupFreq").value;
+    const days = document.getElementById("newGroupDays").value.trim();
+    if (!name) return alert("Введите название группы (например, НП-2)");
+
+    const scheduleText = days ? `${freq} (${days})` : freq;
+    const groups = getGroups();
+    groups.push({
+      id: "grp_" + Date.now(),
+      name,
+      scheduleText,
+      students: [],
+      sessions: [
+        { id: "ses_" + Date.now(), date: "Сегодня", type: "Плановая тренировка", marks: {} }
+      ]
+    });
+
+    document.getElementById("newGroupName").value = "";
+    document.getElementById("newGroupDays").value = "";
+    currentGroupIndex = groups.length - 1;
+    currentSessionIndex = 0;
+    saveState();
+    renderHeader();
+    renderSettings();
+  }
+
+  function deleteGroup(idx) {
+    const groups = getGroups();
+    if (!confirm(`Удалить группу ${groups[idx].name} и весь её журнал?`)) return;
+    groups.splice(idx, 1);
+    currentGroupIndex = 0;
+    currentSessionIndex = 0;
+    saveState();
+    renderHeader();
+    renderSettings();
+  }
+
   function createNextAcademicYear() {
     const startYear = parseInt(state.activeYear.split("–")[0]);
     const nextYearName = `${startYear + 1}–${startYear + 2}`;
 
     if (state.years[nextYearName]) {
-      return alert(`Учебный год ${nextYearName} уже создан!`);
+      return alert(`Учебный год ${nextYearName} уже существует!`);
     }
 
-    const oldGroups = state.years[state.activeYear].groups;
+    const oldGroups = getGroups();
     const newGroups = oldGroups.map(g => {
-      // Повышаем ступень группы (НП-1 -> НП-2, УТГ-2 -> УТГ-3)
       const upgradedName = g.name.replace(/(\d+)/, n => parseInt(n) + 1);
       return {
         id: g.id + "_" + (startYear + 1),
@@ -633,10 +768,10 @@
     currentSessionIndex = 0;
     saveState();
     renderAll();
-    alert(`Создан учебный год ${nextYearName}! Группы переведены на следующую ступень.`);
+    renderSettings();
+    alert(`Создан учебный год ${nextYearName}! Группы переведены на ступень выше.`);
   }
 
-  // Переключение вкладок
   function switchTab(tabName, btnEl) {
     ["journal", "report", "settings"].forEach(t => {
       document.getElementById("tab-" + t).classList.add("hidden");
@@ -646,7 +781,9 @@
     document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
     btnEl.classList.add("active");
 
+    if (tabName === "journal") renderJournal();
     if (tabName === "report") renderReport();
+    if (tabName === "settings") renderSettings();
   }
 
   function renderAll() {
@@ -654,7 +791,8 @@
     renderJournal();
   }
 
-  currentSessionIndex = getCurrentGroup().sessions.length - 1;
+  const initGroup = getCurrentGroup();
+  currentSessionIndex = initGroup ? Math.max(0, initGroup.sessions.length - 1) : 0;
   renderAll();
 </script>
 </body>
