@@ -603,15 +603,15 @@
     `).join("");
   }
 
- function changeYear(year) {
+function changeYear(year) {
     state.activeYear = year;
     currentGroupIndex = 0;
     const g = getCurrentGroup();
     currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
     saveState();
     renderAll();
-    if (!document.getElementById("tab-settings").classList.contains("hidden")) renderSettings();
-    if (!document.getElementById("tab-report").classList.contains("hidden")) renderReport();
+    renderReport();
+    renderSettings();
   }
 
   function selectGroup(idx) {
@@ -619,8 +619,8 @@
     const g = getCurrentGroup();
     currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
     renderAll();
-    if (!document.getElementById("tab-settings").classList.contains("hidden")) renderSettings();
-    if (!document.getElementById("tab-report").classList.contains("hidden")) renderReport();
+    renderReport();
+    renderSettings();
   }
 
   function renderJournal() {
