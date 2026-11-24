@@ -418,13 +418,16 @@
 
 <script>
   // ==========================================
-  // НАСТРОЙКИ SUPABASE (ВСТАВЬТЕ СВОИ ДАННЫЕ)
+  // НАСТРОЙКИ SUPABASE
   // ==========================================
   const SUPABASE_URL = "https://egpminbmdimdrnofsiqh.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVncG1pbmJtZGltZHJub2ZzaXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDM1OTYsImV4cCI6MjExMTExOTU5Nn0.iicrPN8eU8A2CJNo-I6QYecMED1h8Kx83LI4hf1Z5mI";
-  const RECORD_ID = "main_coach_journal"; // Идентификатор записи в базе
+  const RECORD_ID = "main_coach_journal";
 
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // ==========================================
+  // ЗАЩИТА ДОСТУПА ПО TELEGRAM ID
+  // ==========================================
+  const ALLOWED_IDS = [506132216]; // <-- Впишите сюда свой реальный ID
 
   const tg = window.Telegram?.WebApp;
   if (tg) {
@@ -433,6 +436,28 @@
     tg.setHeaderColor("#181b22");
     tg.setBackgroundColor("#0f1115");
   }
+
+  // Получаем ID текущего пользователя из Telegram
+  const currentUserId = tg?.initDataUnsafe?.user?.id;
+
+  // Если ID не в списке разрешенных — блокируем интерфейс и останавливаем скрипт
+  if (!ALLOWED_IDS.includes(currentUserId)) {
+    document.body.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px; color:#f0f2f5;">
+        <div style="font-size:48px; margin-bottom:12px;">🔒</div>
+        <h2 style="margin:0 0 8px 0;">Доступ закрыт</h2>
+        <p style="color:#8b949e; font-size:14px; margin:0 0 16px 0;">
+          Этот журнал доступен только тренеру.
+        </p>
+        <div style="background:#181b22; padding:8px 14px; border-radius:8px; font-size:12px; color:#8b949e; border:1px solid rgba(255,255,255,0.08);">
+          Ваш ID: ${currentUserId || "не определен (откройте через Telegram)"}
+        </div>
+      </div>
+    `;
+    throw new Error("Access denied: unauthorized Telegram ID");
+  }
+
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const defaultData = {
     activeYear: "2026–2027",
