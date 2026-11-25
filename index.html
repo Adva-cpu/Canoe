@@ -275,13 +275,14 @@
     }
     .manage-item:last-child { border-bottom: none; }
     .del-btn {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--red);
-      border: 1px solid rgba(239, 68, 68, 0.3);
+     background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
       border-radius: 6px;
       padding: 5px 10px;
       font-size: 12px;
       cursor: pointer;
+      margin-right: 6px;
     }
 
     /* Нижнее меню */
@@ -335,13 +336,16 @@
     <div class="date-bar">
       <div class="date-nav">
         <button class="icon-btn" onclick="shiftSession(-1)">‹</button>
-        <div class="current-date">
+        <div class="current-date" onclick="editCurrentSession()" title="Нажмите, чтобы изменить дату или тип">
           <strong id="sessionDateTitle">—</strong>
           <span id="sessionTypeLabel">—</span>
         </div>
         <button class="icon-btn" onclick="shiftSession(1)">›</button>
       </div>
-      <button class="add-session-btn" onclick="addExtraSession()">+ Тренировка</button>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button class="icon-btn" style="color:var(--red); border-color:rgba(239,68,68,0.3);" title="Удалить эту тренировку" onclick="deleteCurrentSession()">🗑️</button>
+        <button class="add-session-btn" onclick="addExtraSession()">+ День</button>
+      </div>
     </div>
 
     <div class="actions-row">
