@@ -709,7 +709,7 @@
   function addExtraSession() {
     const group = getCurrentGroup();
     if (!group) return alert("Сначала создайте группу");
-    const dateStr = prompt("Дата тренировки (напр. 26 ноя (Чт)):", "26 ноя (Чт)");
+    const dateStr = prompt("Дата тренировки (напр. 26 ноя (Чт)):", getFormattedToday());
     if (!dateStr) return;
     const typeStr = prompt("Место / вид (Вода, Зал, Бассейн):", "Вода • 10 км") || "Тренировка";
 
@@ -887,7 +887,12 @@
     renderJournal();
     renderReport();
   }
-
+function getFormattedToday() {
+    const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+    const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+    const d = new Date();
+    return `${d.getDate()} ${months[d.getMonth()]} (${days[d.getDay()]})`;
+  }
   function addGroup() {
     const name = document.getElementById("newGroupName").value.trim();
     const freq = document.getElementById("newGroupFreq").value;
@@ -902,7 +907,7 @@
       scheduleText,
       students: [],
       sessions: [
-        { id: "ses_" + Date.now(), date: "Сегодня", type: "Плановая тренировка", marks: {} }
+        { id: "ses_" + Date.now(), date: getFormattedToday(), type: "Плановая тренировка", marks: {} }
       ]
     });
 
