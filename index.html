@@ -718,15 +718,51 @@ function changeYear(year) {
 
     group.sessions.push({
       id: "ses_" + Date.now(),
-      date: dateStr,
-      type: typeStr,
+      date: dateStr.trim(),
+      type: typeStr.trim(),
       marks: {}
     });
     currentSessionIndex = group.sessions.length - 1;
     saveState();
     renderJournal();
+    renderReport();
   }
 
+  function editCurrentSession() {
+    const group = getCurrentGroup();
+    if (!group || !group.sessions.length) return;
+    const session = group.sessions[currentSessionIndex];
+
+    const newDate = prompt("Изменить дату тренировки:", session.date);
+    if (newDate === null) return; // Нажали Отмена
+    const newType = prompt("Изменить место / тип тренировки:", session.type);
+    if (newType === null) return;
+
+    if (newDate.trim()) session.date = newDate.trim();
+    if (newType.trim()) session.type = newType.trim();
+
+    saveState();
+    renderJournal();
+    renderReport();
+  }
+
+  function deleteCurrentSession() {
+    const group = getCurrentGroup();
+    if (!group || !group.sessions.length) return;
+
+    if (group.sessions.length === 1) {
+      return alert("Нельзя удалить единственную тренировку в журнале. Сначала создайте новую или отредактируйте эту (нажмите на дату).");
+    }
+
+    const session = group.sessions[currentSessionIndex];
+    if (!confirm(`Удалить тренировку «${session.date} (${session.type})» и все отметки за этот день?`)) return;
+
+    group.sessions.splice(currentSessionIndex, 1);
+    currentSessionIndex = Math.max(0, currentSessionIndex - 1);
+    saveState();
+    renderJournal();
+    renderReport();
+  }
   function renderReport() {
     const group = getCurrentGroup();
     if (!group) return;
@@ -778,11 +814,17 @@ function changeYear(year) {
     const stContainer = document.getElementById("manageStudentsList");
     if (group) {
       document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
+      // Внутри renderSettings() замени блок stContainer.innerHTML на этот:
+    if (group) {
+      document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
       stContainer.innerHTML = group.students.length
         ? group.students.map(st => `
             <div class="manage-item">
               <span>${st.name} <small style="color:var(--hint)">(${st.birth} г.р.)</small></span>
-              <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
+              <div>
+                <button class="edit-btn" onclick="editStudent('${st.id}')">✏️</button>
+                <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
+              </div>
             </div>
           `).join("")
         : `<div style="font-size:13px; color:var(--hint);">Список пуст</div>`;
@@ -817,7 +859,28 @@ function changeYear(year) {
     renderSettings();
     renderJournal();
   }
+function editStudent(studentId) {
+    const group = getCurrentGroup();
+    if (!group) return;
+    const student = group.students.find(s => s.id === studentId);
+    if (!student) return;
 
+    const newName = prompt("Фамилия и Имя спортсмена:", student.name);
+    if (newName === null) return;
+    const newBirth = prompt("Год рождения:", student.birth);
+    if (newBirth === null) return;
+
+    if (newName.trim()) student.name = newName.trim();
+    if (newBirth.trim()) student.birth = newBirth.trim();
+
+    // Повторно сортируем список по алфавиту после исправления фамилии
+    group.students.sort((a, b) => a.name.localeCompare(b.name));
+
+    saveState();
+    renderSettings();
+    renderJournal();
+    renderReport();
+  }
   function deleteStudent(studentId) {
     const group = getCurrentGroup();
     if (!confirm("Удалить спортсмена из группы?")) return;
