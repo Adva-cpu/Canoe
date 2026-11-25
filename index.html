@@ -842,16 +842,22 @@ function toggleExtra(studentId) {
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
-  function exportCSV() {
+ function exportCSV() {
     const group = getCurrentGroup();
     if (!group) return;
-    let csv = "\uFEFFСпортсмен;" + group.sessions.map(s => s.date).join(";") + "\n";
+    let csv = "\uFEFFСпортсмен;" + group.sessions.map(s => s.date).join(";") + ";Доп. тр;Итого\n";
     group.students.forEach(st => {
+      let attended = 0;
+      let extraCount = 0;
       const row = group.sessions.map(s => {
         const m = s.marks[st.id];
-        return m === "present" ? "Был" : m === "absent" ? "Н" : m === "sick" ? "Б" : "";
+        const hasExtra = s.extras && s.extras[st.id];
+        if (m === "present") attended++;
+        if (hasExtra) extraCount++;
+        const base = m === "present" ? "Был" : m === "absent" ? "Н" : m === "sick" ? "Б" : "";
+        return hasExtra ? (base ? `${base} (+1)` : "+1") : base;
       });
-      csv += `${st.name};${row.join(";")}\n`;
+      csv += `${st.name};${row.join(";")};${extraCount};${attended + extraCount}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
