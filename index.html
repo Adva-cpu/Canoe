@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Журнал тренера — Гребля на каноэ</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Подключаем клиент Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -137,7 +136,7 @@
       align-items: center;
       justify-content: center;
     }
-    .current-date { text-align: center; }
+    .current-date { text-align: center; cursor: pointer; }
     .current-date strong { display: block; font-size: 15px; }
     .current-date span { font-size: 12px; color: var(--hint); }
 
@@ -274,8 +273,8 @@
       font-size: 14px;
     }
     .manage-item:last-child { border-bottom: none; }
-    .del-btn {
-     background: rgba(59, 130, 246, 0.15);
+    .edit-btn {
+      background: rgba(59, 130, 246, 0.15);
       color: #60a5fa;
       border: 1px solid rgba(59, 130, 246, 0.3);
       border-radius: 6px;
@@ -283,6 +282,15 @@
       font-size: 12px;
       cursor: pointer;
       margin-right: 6px;
+    }
+    .del-btn {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
     }
 
     /* Нижнее меню */
@@ -431,7 +439,7 @@
   // ==========================================
   // ЗАЩИТА ДОСТУПА ПО TELEGRAM ID
   // ==========================================
-  const ALLOWED_IDS = [506132216]; // <-- Впишите сюда свой реальный ID
+  const ALLOWED_IDS = [506132216];
 
   const tg = window.Telegram?.WebApp;
   if (tg) {
@@ -441,10 +449,8 @@
     tg.setBackgroundColor("#0f1115");
   }
 
-  // Получаем ID текущего пользователя из Telegram
   const currentUserId = tg?.initDataUnsafe?.user?.id;
 
-  // Если ID не в списке разрешенных — блокируем интерфейс и останавливаем скрипт
   if (!ALLOWED_IDS.includes(currentUserId)) {
     document.body.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px; color:#f0f2f5;">
@@ -512,13 +518,7 @@
     el.style.color = color;
   }
 
-  // Загрузка данных из Supabase при старте
   async function loadFromCloud() {
-    if (SUPABASE_URL.includes("ВАШ_ПРОЕКТ")) {
-      setSyncStatus("⚠️ Вставьте ключи Supabase в код", "var(--orange)");
-      return;
-    }
-
     setSyncStatus("⏳ Загрузка из облака...");
     try {
       const { data, error } = await db
@@ -535,11 +535,10 @@
         const g = getCurrentGroup();
         currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
         renderAll();
-        if (!document.getElementById("tab-settings").classList.contains("hidden")) renderSettings();
-        if (!document.getElementById("tab-report").classList.contains("hidden")) renderReport();
+        renderReport();
+        renderSettings();
         setSyncStatus("☁️ Синхронизировано", "var(--green)");
       } else {
-        // Первый запуск: записываем начальные данные в облако
         await saveToCloudNow();
       }
     } catch (err) {
@@ -548,7 +547,6 @@
     }
   }
 
-  // Сохранение с небольшой задержкой (debounce), чтобы не спамить запросами при быстрых кликах
   function saveState() {
     localStorage.setItem("canoe_app_cache", JSON.stringify(state));
     setSyncStatus("⏳ Сохранение...", "#60a5fa");
@@ -558,7 +556,6 @@
   }
 
   async function saveToCloudNow() {
-    if (SUPABASE_URL.includes("ВАШ_ПРОЕКТ")) return;
     try {
       const { error } = await db
         .from("app_state")
@@ -607,7 +604,7 @@
     `).join("");
   }
 
-function changeYear(year) {
+  function changeYear(year) {
     state.activeYear = year;
     currentGroupIndex = 0;
     const g = getCurrentGroup();
@@ -634,375 +631,4 @@ function changeYear(year) {
     if (!group) {
       document.getElementById("sessionDateTitle").innerText = "Нет групп";
       document.getElementById("sessionTypeLabel").innerText = "Создайте группу в настройках";
-      listEl.innerHTML = `<div class="empty-state">Перейдите в «Управление» и создайте первую группу</div>`;
-      return;
-    }
-
-    const session = group.sessions[currentSessionIndex];
-    document.getElementById("sessionDateTitle").innerText = session.date;
-    document.getElementById("sessionTypeLabel").innerText = `${session.type} • ${group.scheduleText}`;
-
-    if (!group.students.length) {
-      document.getElementById("statsCounter").innerText = "В группе пока нет участников";
-      listEl.innerHTML = `<div class="empty-state">Добавьте спортсменов во вкладке «Управление»</div>`;
-      return;
-    }
-
-    let presentCount = 0;
-    listEl.innerHTML = group.students.map(st => {
-      const status = session.marks[st.id] || "none";
-      if (status === "present") presentCount++;
-
-      const cfg = {
-        none: { label: "Не отмечен", icon: "⬜", cls: "status-none" },
-        present: { label: "Был", icon: "✅", cls: "status-present" },
-        absent: { label: "Не был", icon: "❌", cls: "status-absent" },
-        sick: { label: "Болеет", icon: "🤒", cls: "status-sick" }
-      }[status];
-
-      return `
-        <div class="student-row" onclick="toggleStatus('${st.id}')">
-          <div class="student-info">
-            <span class="student-name">${st.name}</span>
-            <span class="student-meta">${st.birth} г.р.</span>
-          </div>
-          <div class="status-box ${cfg.cls}">
-            <span>${cfg.icon}</span>
-            <span>${cfg.label}</span>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    document.getElementById("statsCounter").innerText = `На тренировке: ${presentCount} из ${group.students.length}`;
-  }
-
-  function toggleStatus(studentId) {
-    const group = getCurrentGroup();
-    const session = group.sessions[currentSessionIndex];
-    const order = ["none", "present", "absent", "sick"];
-    const current = session.marks[studentId] || "none";
-    session.marks[studentId] = order[(order.indexOf(current) + 1) % order.length];
-
-    if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
-    saveState();
-    renderJournal();
-  }
-
-  function markAllPresent() {
-    const group = getCurrentGroup();
-    if (!group || !group.students.length) return;
-    const session = group.sessions[currentSessionIndex];
-    group.students.forEach(st => session.marks[st.id] = "present");
-    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
-    saveState();
-    renderJournal();
-  }
-
-  function shiftSession(dir) {
-    const group = getCurrentGroup();
-    if (!group) return;
-    const nextIdx = currentSessionIndex + dir;
-    if (nextIdx >= 0 && nextIdx < group.sessions.length) {
-      currentSessionIndex = nextIdx;
-      renderJournal();
-    }
-  }
-
-  function addExtraSession() {
-    const group = getCurrentGroup();
-    if (!group) return alert("Сначала создайте группу");
-    const dateStr = prompt("Дата тренировки (напр. 26 ноя (Чт)):", "26 ноя (Чт)");
-    if (!dateStr) return;
-    const typeStr = prompt("Место / вид (Вода, Зал, Бассейн):", "Вода • 10 км") || "Тренировка";
-
-    group.sessions.push({
-      id: "ses_" + Date.now(),
-      date: dateStr.trim(),
-      type: typeStr.trim(),
-      marks: {}
-    });
-    currentSessionIndex = group.sessions.length - 1;
-    saveState();
-    renderJournal();
-    renderReport();
-  }
-
-  function editCurrentSession() {
-    const group = getCurrentGroup();
-    if (!group || !group.sessions.length) return;
-    const session = group.sessions[currentSessionIndex];
-
-    const newDate = prompt("Изменить дату тренировки:", session.date);
-    if (newDate === null) return; // Нажали Отмена
-    const newType = prompt("Изменить место / тип тренировки:", session.type);
-    if (newType === null) return;
-
-    if (newDate.trim()) session.date = newDate.trim();
-    if (newType.trim()) session.type = newType.trim();
-
-    saveState();
-    renderJournal();
-    renderReport();
-  }
-
-  function deleteCurrentSession() {
-    const group = getCurrentGroup();
-    if (!group || !group.sessions.length) return;
-
-    if (group.sessions.length === 1) {
-      return alert("Нельзя удалить единственную тренировку в журнале. Сначала создайте новую или отредактируйте эту (нажмите на дату).");
-    }
-
-    const session = group.sessions[currentSessionIndex];
-    if (!confirm(`Удалить тренировку «${session.date} (${session.type})» и все отметки за этот день?`)) return;
-
-    group.sessions.splice(currentSessionIndex, 1);
-    currentSessionIndex = Math.max(0, currentSessionIndex - 1);
-    saveState();
-    renderJournal();
-    renderReport();
-  }
-  function renderReport() {
-    const group = getCurrentGroup();
-    if (!group) return;
-    document.getElementById("reportGroupTitle").innerText = `Табель: ${group.name} (${state.activeYear})`;
-
-    let thead = `<tr><th>Спортсмен</th>` +
-      group.sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1] || ""}</small></th>`).join("") +
-      `<th>%</th></tr>`;
-
-    let tbody = group.students.map(st => {
-      let attended = 0;
-      const cells = group.sessions.map(s => {
-        const m = s.marks[st.id];
-        if (m === "present") { attended++; return "<td>✅</td>"; }
-        if (m === "absent") return "<td>❌</td>";
-        if (m === "sick") return "<td>🤒</td>";
-        return "<td>·</td>";
-      }).join("");
-      const pct = group.sessions.length ? Math.round((attended / group.sessions.length) * 100) : 0;
-      return `<tr><td>${st.name}</td>${cells}<td><strong>${pct}%</strong></td></tr>`;
-    }).join("");
-
-    document.getElementById("reportTable").innerHTML = thead + tbody;
-  }
-
-  function exportCSV() {
-    const group = getCurrentGroup();
-    if (!group) return;
-    let csv = "\uFEFFСпортсмен;" + group.sessions.map(s => s.date).join(";") + "\n";
-    group.students.forEach(st => {
-      const row = group.sessions.map(s => {
-        const m = s.marks[st.id];
-        return m === "present" ? "Был" : m === "absent" ? "Н" : m === "sick" ? "Б" : "";
-      });
-      csv += `${st.name};${row.join(";")}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Табель_${group.name}_${state.activeYear}.csv`;
-    link.click();
-  }
-
-  function renderSettings() {
-    document.getElementById("manageYearLabel").innerText = state.activeYear;
-    const group = getCurrentGroup();
-
-    const stContainer = document.getElementById("manageStudentsList");
-    if (group) {
-      document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
-      // Внутри renderSettings() замени блок stContainer.innerHTML на этот:
-    if (group) {
-      document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
-      stContainer.innerHTML = group.students.length
-        ? group.students.map(st => `
-            <div class="manage-item">
-              <span>${st.name} <small style="color:var(--hint)">(${st.birth} г.р.)</small></span>
-              <div>
-                <button class="edit-btn" onclick="editStudent('${st.id}')">✏️</button>
-                <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
-              </div>
-            </div>
-          `).join("")
-        : `<div style="font-size:13px; color:var(--hint);">Список пуст</div>`;
-    } else {
-      document.getElementById("manageStudentsTitle").innerText = "Спортсмены (сначала создайте группу)";
-      stContainer.innerHTML = "";
-    }
-
-    const groups = getGroups();
-    document.getElementById("manageGroupsList").innerHTML = groups.map((g, idx) => `
-      <div class="manage-item">
-        <div>
-          <strong>${g.name}</strong>
-          <div style="font-size:12px; color:var(--hint)">${g.scheduleText} • ${g.students.length} чел.</div>
-        </div>
-        <button class="del-btn" onclick="deleteGroup(${idx})">Удалить</button>
-      </div>
-    `).join("");
-  }
-
-  function addStudent() {
-    const group = getCurrentGroup();
-    if (!group) return alert("Сначала создайте группу");
-    const name = document.getElementById("newStudentName").value.trim();
-    const birth = document.getElementById("newStudentYear").value.trim() || "2014";
-    if (!name) return alert("Введите ФИО спортсмена");
-
-    group.students.push({ id: "st_" + Date.now(), name, birth });
-    group.students.sort((a, b) => a.name.localeCompare(b.name));
-    document.getElementById("newStudentName").value = "";
-    saveState();
-    renderSettings();
-    renderJournal();
-  }
-function editStudent(studentId) {
-    const group = getCurrentGroup();
-    if (!group) return;
-    const student = group.students.find(s => s.id === studentId);
-    if (!student) return;
-
-    const newName = prompt("Фамилия и Имя спортсмена:", student.name);
-    if (newName === null) return;
-    const newBirth = prompt("Год рождения:", student.birth);
-    if (newBirth === null) return;
-
-    if (newName.trim()) student.name = newName.trim();
-    if (newBirth.trim()) student.birth = newBirth.trim();
-
-    // Повторно сортируем список по алфавиту после исправления фамилии
-    group.students.sort((a, b) => a.name.localeCompare(b.name));
-
-    saveState();
-    renderSettings();
-    renderJournal();
-    renderReport();
-  }
-  function deleteStudent(studentId) {
-    const group = getCurrentGroup();
-    if (!confirm("Удалить спортсмена из группы?")) return;
-    group.students = group.students.filter(s => s.id !== studentId);
-    saveState();
-    renderSettings();
-    renderJournal();
-  }
-
-  function addGroup() {
-    const name = document.getElementById("newGroupName").value.trim();
-    const freq = document.getElementById("newGroupFreq").value;
-    const days = document.getElementById("newGroupDays").value.trim();
-    if (!name) return alert("Введите название группы (например, НП-2)");
-
-    const scheduleText = days ? `${freq} (${days})` : freq;
-    const groups = getGroups();
-    groups.push({
-      id: "grp_" + Date.now(),
-      name,
-      scheduleText,
-      students: [],
-      sessions: [
-        { id: "ses_" + Date.now(), date: "Сегодня", type: "Плановая тренировка", marks: {} }
-      ]
-    });
-
-    document.getElementById("newGroupName").value = "";
-    document.getElementById("newGroupDays").value = "";
-    currentGroupIndex = groups.length - 1;
-    currentSessionIndex = 0;
-    saveState();
-    renderHeader();
-    renderSettings();
-  }
-
-  function deleteGroup(idx) {
-    const groups = getGroups();
-    if (!confirm(`Удалить группу ${groups[idx].name} и весь её журнал?`)) return;
-    groups.splice(idx, 1);
-    currentGroupIndex = 0;
-    currentSessionIndex = 0;
-    saveState();
-    renderHeader();
-    renderSettings();
-  }
-
-  function createNextAcademicYear() {
-    const startYear = parseInt(state.activeYear.split("–")[0]);
-    const nextYearName = `${startYear + 1}–${startYear + 2}`;
-
-    if (state.years[nextYearName]) {
-      return alert(`Учебный год ${nextYearName} уже существует!`);
-    }
-
-    const oldGroups = getGroups();
-    const newGroups = oldGroups.map(g => {
-      const upgradedName = g.name.replace(/(\d+)/, n => parseInt(n) + 1);
-      return {
-        id: g.id + "_" + (startYear + 1),
-        name: upgradedName,
-        scheduleText: g.scheduleText,
-        students: JSON.parse(JSON.stringify(g.students)),
-        sessions: [
-          { id: "init_" + Date.now(), date: "01 сен (Вт)", type: "Организационная", marks: {} }
-        ]
-      };
-    });
-
-    state.years[nextYearName] = { groups: newGroups };
-    state.activeYear = nextYearName;
-    currentGroupIndex = 0;
-    currentSessionIndex = 0;
-    saveState();
-    renderAll();
-    renderSettings();
-    alert(`Создан учебный год ${nextYearName}! Группы переведены на ступень выше.`);
-  }
-
-  function switchTab(tabName, btnEl) {
-    ["journal", "report", "settings"].forEach(t => {
-      document.getElementById("tab-" + t).classList.add("hidden");
-    });
-    document.getElementById("tab-" + tabName).classList.remove("hidden");
-
-    document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-    btnEl.classList.add("active");
-
-    if (tabName === "journal") renderJournal();
-    if (tabName === "report") renderReport();
-    if (tabName === "settings") renderSettings();
-  }
-
-  function renderAll() {
-    renderHeader();
-    renderJournal();
-  }
-
-  const initGroup = getCurrentGroup();
-  currentSessionIndex = initGroup ? Math.max(0, initGroup.sessions.length - 1) : 0;
-  renderAll();
-  loadFromCloud();
-  // Автоматически подтягивать свежие данные при возврате в Telegram
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      loadFromCloud();
-    }
-  });
-
-  // Мгновенная синхронизация в реальном времени между телефоном и ПК
-  db.channel("canoe-sync")
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_state", filter: `id=eq.${RECORD_ID}` }, payload => {
-      if (payload.new && payload.new.data) {
-        state = payload.new.data;
-        localStorage.setItem("canoe_app_cache", JSON.stringify(state));
-        renderAll();
-        if (!document.getElementById("tab-settings").classList.contains("hidden")) renderSettings();
-        if (!document.getElementById("tab-report").classList.contains("hidden")) renderReport();
-        setSyncStatus("☁️ Обновлено", "var(--green)");
-      }
-    })
-    .subscribe();
-</script>
-</body>
-</html>
+      listEl.innerHTML = `<div class="empty-state">Перейдите в «Управление» и создайте первую группу
