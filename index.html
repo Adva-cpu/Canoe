@@ -711,7 +711,21 @@
     saveState();
     renderJournal();
   }
+function toggleExtra(studentId) {
+    const group = getCurrentGroup();
+    const session = group.sessions[currentSessionIndex];
+    if (!session.extras) session.extras = {};
 
+    if (session.extras[studentId]) {
+      delete session.extras[studentId];
+    } else {
+      session.extras[studentId] = 1;
+    }
+
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
+    saveState();
+    renderJournal();
+  }
   function markAllPresent() {
     const group = getCurrentGroup();
     if (!group || !group.students.length) return;
@@ -794,19 +808,35 @@
 
     let thead = `<tr><th>Спортсмен</th>` +
       group.sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1] || ""}</small></th>`).join("") +
-      `<th>%</th></tr>`;
+      `<th>Доп.</th><th>Итого</th><th>%</th></tr>`;
 
     let tbody = group.students.map(st => {
       let attended = 0;
+      let extraCount = 0;
+
       const cells = group.sessions.map(s => {
         const m = s.marks[st.id];
-        if (m === "present") { attended++; return "<td>✅</td>"; }
-        if (m === "absent") return "<td>❌</td>";
-        if (m === "sick") return "<td>🤒</td>";
-        return "<td>·</td>";
+        const hasExtra = s.extras && s.extras[st.id];
+        if (hasExtra) extraCount++;
+
+        let markSymbol = "·";
+        if (m === "present") { attended++; markSymbol = "✅"; }
+        else if (m === "absent") { markSymbol = "❌"; }
+        else if (m === "sick") { markSymbol = "🤒"; }
+
+        return `<td>${markSymbol}${hasExtra ? "<sup style='color:#c084fc'>+1</sup>" : ""}</td>`;
       }).join("");
+
       const pct = group.sessions.length ? Math.round((attended / group.sessions.length) * 100) : 0;
-      return `<tr><td>${st.name}</td>${cells}<td><strong>${pct}%</strong></td></tr>`;
+      const totalAll = attended + extraCount;
+
+      return `<tr>
+        <td>${st.name}</td>
+        ${cells}
+        <td style="color:#c084fc; font-weight:600;">${extraCount ? "+" + extraCount : "0"}</td>
+        <td><strong>${totalAll}</strong></td>
+        <td><strong>${pct}%</strong></td>
+      </tr>`;
     }).join("");
 
     document.getElementById("reportTable").innerHTML = thead + tbody;
