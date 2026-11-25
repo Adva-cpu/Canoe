@@ -511,7 +511,7 @@
     }
   };
 
-  let state = JSON.parse(localStorage.getItem("canoe_app_cache")) || defaultData;
+  let state = JSON.parse(localStorage.getItem(`canoe_cache_${RECORD_ID}`)) || defaultData;
   let currentGroupIndex = 0;
   let currentSessionIndex = 0;
   let saveTimeout = null;
@@ -535,7 +535,7 @@
 
       if (data && data.data) {
         state = data.data;
-        localStorage.setItem("canoe_app_cache", JSON.stringify(state));
+        localStorage.setItem(`canoe_cache_${RECORD_ID}`, JSON.stringify(state));
         const g = getCurrentGroup();
         currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
         renderAll();
@@ -552,7 +552,7 @@
   }
 
   function saveState() {
-    localStorage.setItem("canoe_app_cache", JSON.stringify(state));
+    localStorage.setItem(`canoe_cache_${RECORD_ID}`, JSON.stringify(state));
     setSyncStatus("⏳ Сохранение...", "#60a5fa");
 
     clearTimeout(saveTimeout);
@@ -1006,7 +1006,7 @@ function getFormattedToday() {
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_state", filter: `id=eq.${RECORD_ID}` }, payload => {
       if (payload.new && payload.new.data) {
         state = payload.new.data;
-        localStorage.setItem("canoe_app_cache", JSON.stringify(state));
+        localStorage.setItem(`canoe_cache_${RECORD_ID}`, JSON.stringify(state));
         renderAll();
         renderReport();
         renderSettings();
