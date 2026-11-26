@@ -645,12 +645,11 @@
       <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Примечание (необязательно)</label>
       <input type="text" id="modalSessionNote" class="input-field" placeholder="Напр: 4×1000 м или разминка" />
 
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="document.getElementById('sessionModal').classList.add('hidden')">Отмена</button>
-        <button class="btn-primary" style="flex:1;" onclick="saveSessionModal()">Сохранить</button>
+   <div class="modal-actions">
+        <button class="btn-secondary" onclick="document.getElementById('exportFallbackModal').classList.add('hidden')">Закрыть</button>
+        <button class="btn-secondary" onclick="tryNativeShare()">📤 Файлом</button>
+        <button class="btn-primary" style="flex:1;" onclick="copyExportFallback()">📋 Скопировать</button>
       </div>
-    </div>
-  </div>
 
   <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ СПОРТСМЕНА -->
   <div id="studentModal" class="modal-overlay hidden" onclick="if(event.target.id==='studentModal') this.classList.add('hidden')">
@@ -1415,43 +1414,49 @@
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
-  async function saveOrShareFile(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
+ let lastExportData = { content: "", filename: "", mimeType: "" };
 
-    // 1. Пробуем нативное меню "Поделиться" на мобильных устройствах (работает в Telegram iOS/Android)
-    try {
-      const file = new File([blob], filename, { type: mimeType });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: filename
-        });
-        return;
+  function saveOrShareFile(content, filename, mimeType) {
+    lastExportData = { content, filename, mimeType };
+
+    // На ПК (Telegram Desktop) пробуем скачать сразу
+    const isDesktop = !tg || (tg.platform !== "android" && tg.platform !== "ios");
+    if (isDesktop) {
+      try {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.warn(e);
       }
-    } catch (err) {
-      // Если пользователь сам закрыл окно "Поделиться" — просто выходим
-      if (err && err.name === "AbortError") return;
-      console.warn("Web Share не сработал, пробуем обычное скачивание:", err);
     }
 
-    // 2. Пробуем классическое скачивание (работает в Telegram Desktop на ПК)
-    const isMobileTg = tg && (tg.platform === "android" || tg.platform === "ios");
-    if (!isMobileTg) {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      return;
-    }
-
-    // 3. Запасной вариант для мобильного WebView без поддержки Share API
+    // Всегда открываем окно с текстом и кнопкой копирования, чтобы ничего не зависало молча
     document.getElementById("exportFallbackTitle").innerText = filename;
     document.getElementById("exportFallbackText").value = content.replace(/^\uFEFF/, "");
     document.getElementById("exportFallbackModal").classList.remove("hidden");
+  }
+
+  async function tryNativeShare() {
+    try {
+      const blob = new Blob([lastExportData.content], { type: "text/plain" });
+      const file = new File([blob], lastExportData.filename, { type: "text/plain" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: lastExportData.filename });
+      } else {
+        alert("Ваш телефон не поддерживает прямую передачу файлов из мини-приложения. Нажмите «📋 Скопировать» и вставьте текст в сообщение себе в Избранное.");
+      }
+    } catch (err) {
+      if (err && err.name !== "AbortError") {
+        alert("Не удалось открыть меню отправки. Используйте кнопку «📋 Скопировать».");
+      }
+    }
   }
 
   function copyExportFallback() {
