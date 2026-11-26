@@ -676,7 +676,21 @@
       </div>
     </div>
   </div>
-
+<!-- МОДАЛЬНОЕ ОКНО ЭКСПОРТА (ЗАПАСНОЙ ВАРИАНТ) -->
+  <div id="exportFallbackModal" class="modal-overlay hidden" onclick="if(event.target.id==='exportFallbackModal') this.classList.add('hidden')">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3 id="exportFallbackTitle">Экспорт данных</h3>
+      <p style="font-size:12px; color:var(--hint); margin-top:0;">
+        Если скачивание заблокировано телефоном, скопируйте текст ниже и вставьте в заметки или Excel:
+      </p>
+      <textarea id="exportFallbackText" class="input-field" rows="6" readonly style="font-family:monospace; font-size:11px; resize:none;"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="document.getElementById('exportFallbackModal').classList.add('hidden')">Закрыть</button>
+        <button class="btn-primary" style="flex:1;" onclick="copyExportFallback()">📋 Скопировать</button>
+      </div>
+    </div>
+  </div>
+  
 <script>
   // ==========================================
   // НАСТРОЙКИ SUPABASE
@@ -1401,6 +1415,57 @@
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
+  async function saveOrShareFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+
+    // 1. Пробуем нативное меню "Поделиться" на мобильных устройствах (работает в Telegram iOS/Android)
+    try {
+      const file = new File([blob], filename, { type: mimeType });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename
+        });
+        return;
+      }
+    } catch (err) {
+      // Если пользователь сам закрыл окно "Поделиться" — просто выходим
+      if (err && err.name === "AbortError") return;
+      console.warn("Web Share не сработал, пробуем обычное скачивание:", err);
+    }
+
+    // 2. Пробуем классическое скачивание (работает в Telegram Desktop на ПК)
+    const isMobileTg = tg && (tg.platform === "android" || tg.platform === "ios");
+    if (!isMobileTg) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // 3. Запасной вариант для мобильного WebView без поддержки Share API
+    document.getElementById("exportFallbackTitle").innerText = filename;
+    document.getElementById("exportFallbackText").value = content.replace(/^\uFEFF/, "");
+    document.getElementById("exportFallbackModal").classList.remove("hidden");
+  }
+
+  function copyExportFallback() {
+    const ta = document.getElementById("exportFallbackText");
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(ta.value).then(() => {
+      alert("✅ Скопировано в буфер обмена!");
+    }).catch(() => {
+      document.execCommand("copy");
+      alert("✅ Скопировано!");
+    });
+  }
+
   function exportCSV() {
     const group = getCurrentGroup();
     if (!group) return;
@@ -1430,11 +1495,7 @@
         csv += `${st.name};${row.join(";")}\n`;
       });
 
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `Нормативы_${group.name}_${periodLabel}.csv`;
-      link.click();
+      saveOrShareFile(csv, `Нормативы_${group.name}_${periodLabel}.csv`, "text/csv;charset=utf-8");
       return;
     }
 
@@ -1461,11 +1522,7 @@
       csv += `${st.name};${row.join(";")};${extraCount};${attended + extraCount};${waterKm};${ergoKm};${otherHours}\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Табель_Объёмы_${group.name}_${periodLabel}.csv`;
-    link.click();
+    saveOrShareFile(csv, `Табель_${group.name}_${periodLabel}.csv`, "text/csv;charset=utf-8");
   }
 
   function renderSettings() {
@@ -1766,19 +1823,10 @@
     alert(`Создан учебный год ${nextYearName}! Группы переведены на ступень выше.`);
   }
 
-  function downloadBackup() {
+ function downloadBackup() {
     const jsonStr = JSON.stringify(state, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-
     const dateTag = new Date().toISOString().slice(0, 10);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `CanoeJournal_Backup_${dateTag}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    saveOrShareFile(jsonStr, `CanoeJournal_Backup_${dateTag}.json`, "application/json;charset=utf-8");
   }
 
   function restoreBackup(event) {
