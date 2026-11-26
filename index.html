@@ -1421,7 +1421,7 @@
                   ${med && med.isUrgent ? medHtml : ""}
                 </div>
                 <div style="display:flex; align-items:center;">
-                  ${tgUrl ? `<a href="${tgUrl}" target="_blank" class="tg-link-btn" onclick="event.stopPropagation()">✈️ ТГ</a>` : ""}
+                  ${tgUrl ? `<button type="button" class="tg-link-btn" style="cursor:pointer;" onclick="event.stopPropagation(); openTgChat('${tgUrl}')">✈️ ТГ</button>` : ""}
                   <button class="edit-btn" title="Перевести в другую группу" onclick="transferStudent('${st.id}')">↗️</button>
                   <button class="edit-btn" title="Редактировать" onclick="editStudent('${st.id}')">✏️</button>
                   <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
@@ -1466,7 +1466,16 @@
     const username = clean.replace(/^@/, "");
     return username ? `https://t.me/${username}` : "";
   }
-
+function openTgChat(url) {
+    if (!url) return;
+    if (tg && typeof tg.openTelegramLink === "function" && url.startsWith("https://t.me/")) {
+      tg.openTelegramLink(url);
+    } else if (tg && typeof tg.openLink === "function") {
+      tg.openLink(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  }
   function getMedStatus(medDateStr) {
     if (!medDateStr) return null;
     const today = new Date();
