@@ -709,21 +709,18 @@
 
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const defaultData = {
+ const defaultData = {
     activeYear: "2026–2027",
     years: {
       "2026–2027": {
         groups: [
           {
-            id: "np1",
-            name: "НП-1",
+            id: "grp_start",
+            name: "Группа 1",
             scheduleText: "3 тр/нед (Пн, Ср, Пт)",
-            students: [
-              { id: "s1", name: "Волков Артем", birth: 2015 },
-              { id: "s2", name: "Громова Алиса", birth: 2015 }
-            ],
+            students: [],
             sessions: [
-              { id: "ses1", date: getFormattedToday(), type: "Плановая тренировка", marks: {} }
+              { id: "ses_start", date: getFormattedToday(), type: "Плановая тренировка", marks: {} }
             ]
           }
         ]
