@@ -584,6 +584,17 @@
       </p>
       <button class="btn-primary" onclick="createNextAcademicYear()">📅 Начать новый учебный год</button>
     </div>
+    <div class="card-box">
+      <h3>Резервная копия данных</h3>
+      <p style="font-size:13px; color:var(--hint); margin-top:0;">
+        Сохраните копию всех групп, посещаемости и тестов на телефон, чтобы не потерять данные при случайном удалении.
+      </p>
+      <div class="row-2col">
+        <button class="btn-secondary" onclick="downloadBackup()">💾 Скачать (JSON)</button>
+        <button class="btn-secondary" onclick="document.getElementById('backupFileInput').click()">📂 Восстановить</button>
+      </div>
+      <input type="file" id="backupFileInput" accept=".json,application/json" class="hidden" onchange="restoreBackup(event)" />
+    </div>
   </div>
 
   <!-- НИЖНЯЯ НАВИГАЦИЯ -->
@@ -1684,7 +1695,59 @@ function openTgChat(url) {
     renderReport();
     alert(`Создан учебный год ${nextYearName}! Группы переведены на ступень выше.`);
   }
+function downloadBackup() {
+    const jsonStr = JSON.stringify(state, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
 
+    const dateTag = new Date().toISOString().slice(0, 10); // ГГГГ-ММ-ДД
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `CanoeJournal_Backup_${dateTag}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function restoreBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parsed = JSON.parse(e.target.result);
+
+        // Проверяем, что файл действительно от нашего журнала
+        if (!parsed || !parsed.activeYear || !parsed.years || typeof parsed.years !== "object") {
+          throw new Error("Неверный формат файла резервной копии");
+        }
+
+        if (!confirm(`Восстановить базу из файла «${file.name}»?\nТекущие данные в журнале будут заменены данными из копии.`)) {
+          event.target.value = "";
+          return;
+        }
+
+        state = parsed;
+        currentGroupIndex = 0;
+        const g = getCurrentGroup();
+        currentSessionIndex = g ? Math.max(0, g.sessions.length - 1) : 0;
+
+        saveState();
+        renderAll();
+        renderReport();
+        renderSettings();
+        alert("✅ Данные успешно восстановлены и отправлены в облако!");
+      } catch (err) {
+        alert("⚠️ Ошибка чтения файла: убедитесь, что выбран правильный JSON-файл резервной копии.");
+        console.error(err);
+      } finally {
+        event.target.value = ""; // Сбрасываем input, чтобы можно было выбрать тот же файл повторно
+      }
+    };
+    reader.readAsText(file);
+  }
   function switchTab(tabName, btnEl) {
     ["journal", "report", "settings"].forEach(t => {
       document.getElementById("tab-" + t).classList.add("hidden");
