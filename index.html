@@ -308,7 +308,32 @@
       font-size: 12px;
       cursor: pointer;
     }
-
+.day-check {
+      flex: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+    .day-check input {
+      display: none;
+    }
+    .day-check span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--hint);
+      transition: 0.15s;
+    }
+    .day-check input:checked + span {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      border-color: var(--accent);
+    }
     /* Нижнее меню */
     .bottom-nav {
       position: fixed;
@@ -408,7 +433,38 @@
       <button class="btn-primary" onclick="addStudent()">+ Добавить спортсмена</button>
       <div id="manageStudentsList" style="margin-top: 12px;"></div>
     </div>
+<div class="card-box">
+      <h3>Автогенерация расписания (<span id="genGroupLabel">—</span>)</h3>
+      <div class="row-2col">
+        <select id="genMonthSelect" class="input-field">
+          <option value="0">Январь</option>
+          <option value="1">Февраль</option>
+          <option value="2">Март</option>
+          <option value="3">Апрель</option>
+          <option value="4">Май</option>
+          <option value="5">Июнь</option>
+          <option value="6">Июль</option>
+          <option value="7">Август</option>
+          <option value="8">Сентябрь</option>
+          <option value="9">Октябрь</option>
+          <option value="10">Ноябрь</option>
+          <option value="11">Декабрь</option>
+        </select>
+        <input type="text" id="genSessionType" class="input-field" value="Плановая тренировка" placeholder="Тип (Вода, Зал)" />
+      </div>
+      
+      <div style="display:flex; justify-content:space-between; gap:4px; margin-bottom:10px;">
+        <label class="day-check"><input type="checkbox" value="1" checked><span>Пн</span></label>
+        <label class="day-check"><input type="checkbox" value="2"><span>Вт</span></label>
+        <label class="day-check"><input type="checkbox" value="3" checked><span>Ср</span></label>
+        <label class="day-check"><input type="checkbox" value="4"><span>Чт</span></label>
+        <label class="day-check"><input type="checkbox" value="5" checked><span>Пт</span></label>
+        <label class="day-check"><input type="checkbox" value="6"><span>Сб</span></label>
+        <label class="day-check"><input type="checkbox" value="0"><span>Вс</span></label>
+      </div>
 
+      <button class="btn-primary" onclick="generateMonthSchedule()">🗓️ Сгенерировать месяц</button>
+    </div>
     <div class="card-box">
       <h3>Группы учебного года (<span id="manageYearLabel"></span>)</h3>
       <input type="text" id="newGroupName" class="input-field" placeholder="Название (напр. НП-2 или УТГ-3)" />
@@ -770,7 +826,61 @@ function toggleExtra(studentId) {
     renderJournal();
     renderReport();
   }
+function generateMonthSchedule() {
+    const group = getCurrentGroup();
+    if (!group) return alert("Сначала создайте группу");
 
+    const monthIdx = parseInt(document.getElementById("genMonthSelect").value);
+    const sessionType = document.getElementById("genSessionType").value.trim() || "Плановая тренировка";
+
+    // Собираем выбранные дни недели (0 = Вс, 1 = Пн ... 6 = Сб)
+    const selectedDays = Array.from(document.querySelectorAll(".day-check input:checked"))
+      .map(cb => parseInt(cb.value));
+
+    if (!selectedDays.length) {
+      return alert("Выберите хотя бы один день недели (Пн–Вс).");
+    }
+
+    // Определяем точный календарный год из activeYear (например "2026–2027")
+    const yearParts = state.activeYear.split("–").map(Number);
+    const calendarYear = (monthIdx >= 8) ? yearParts[0] : (yearParts[1] || yearParts[0]);
+
+    const monthsShort = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+    const daysShort = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
+    const daysInMonth = new Date(calendarYear, monthIdx + 1, 0).getDate();
+    let addedCount = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(calendarYear, monthIdx, day);
+      const dayOfWeek = dateObj.getDay();
+
+      if (selectedDays.includes(dayOfWeek)) {
+        const formattedDate = `${day} ${monthsShort[monthIdx]} (${daysShort[dayOfWeek]})`;
+
+        // Проверяем, нет ли уже тренировки с такой же датой, чтобы не плодить дубли
+        const alreadyExists = group.sessions.some(s => s.date === formattedDate);
+        if (!alreadyExists) {
+          group.sessions.push({
+            id: "ses_" + Date.now() + "_" + day,
+            date: formattedDate,
+            type: sessionType,
+            marks: {}
+          });
+          addedCount++;
+        }
+      }
+    }
+
+    if (addedCount === 0) {
+      return alert("Все тренировки на выбранные дни этого месяца уже существуют в журнале.");
+    }
+
+    saveState();
+    renderJournal();
+    renderReport();
+    alert(`Готово! Добавлено тренировок: ${addedCount}.`);
+  }
   function editCurrentSession() {
     const group = getCurrentGroup();
     if (!group || !group.sessions.length) return;
@@ -920,7 +1030,8 @@ function toggleExtra(studentId) {
   function renderSettings() {
     document.getElementById("manageYearLabel").innerText = state.activeYear;
     const group = getCurrentGroup();
-
+const genLabel = document.getElementById("genGroupLabel");
+    if (genLabel) genLabel.innerText = group ? group.name : "нет группы";
     const stContainer = document.getElementById("manageStudentsList");
    if (group) {
       document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
@@ -1155,6 +1266,7 @@ function getFormattedToday() {
       if (payload.new && payload.new.data) {
         state = payload.new.data;
         localStorage.setItem(`canoe_cache_${RECORD_ID}`, JSON.stringify(state));
+        document.getElementById("genMonthSelect").value = (new Date().getMonth() + 1) % 12;
         renderAll();
         renderReport();
         renderSettings();
