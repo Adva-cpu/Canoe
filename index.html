@@ -381,11 +381,17 @@
   </div>
 
   <!-- ВКЛАДКА 2: ТАБЕЛЬ ЗА МЕСЯЦ -->
+ <!-- ВКЛАДКА 2: ТАБЕЛЬ ЗА МЕСЯЦ -->
   <div id="tab-report" class="hidden">
     <div class="table-wrap">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
         <strong id="reportGroupTitle">Табель группы</strong>
-        <button class="add-session-btn" onclick="exportCSV()">📥 Excel (CSV)</button>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="reportMonthFilter" class="year-select" style="font-size:12px; padding:6px 8px;" onchange="renderReport()">
+            <option value="all">Все месяцы</option>
+          </select>
+          <button class="add-session-btn" onclick="exportCSV()">📥 Excel (CSV)</button>
+        </div>
       </div>
       <table id="reportTable"></table>
     </div>
@@ -801,20 +807,60 @@ function toggleExtra(studentId) {
     renderReport();
   }
 
+  const MONTH_NAMES = {
+    "янв": "Январь", "фев": "Февраль", "мар": "Март", "апр": "Апрель",
+    "май": "Май", "июн": "Июнь", "июл": "Июль", "авг": "Август",
+    "сен": "Сентябрь", "окт": "Октябрь", "ноя": "Ноябрь", "дек": "Декабрь"
+  };
+
+  function getSessionMonthKey(dateStr) {
+    const lower = dateStr.toLowerCase();
+    for (const key of Object.keys(MONTH_NAMES)) {
+      if (lower.includes(key)) return key;
+    }
+    return "other";
+  }
+
+  function getFilteredSessions(group) {
+    const filterEl = document.getElementById("reportMonthFilter");
+    if (!filterEl) return group.sessions;
+
+    // Собираем уникальные месяцы из тренировок текущей группы
+    const availableMonths = [];
+    group.sessions.forEach(s => {
+      const mKey = getSessionMonthKey(s.date);
+      if (mKey !== "other" && !availableMonths.includes(mKey)) {
+        availableMonths.push(mKey);
+      }
+    });
+
+    const currentVal = filterEl.value;
+    filterEl.innerHTML = `<option value="all">Все месяцы</option>` +
+      availableMonths.map(k => `<option value="${k}" ${k === currentVal ? "selected" : ""}>${MONTH_NAMES[k]}</option>`).join("");
+
+    const selected = filterEl.value;
+    if (selected === "all") return group.sessions;
+    return group.sessions.filter(s => getSessionMonthKey(s.date) === selected);
+  }
+
   function renderReport() {
     const group = getCurrentGroup();
     if (!group) return;
-    document.getElementById("reportGroupTitle").innerText = `Табель: ${group.name} (${state.activeYear})`;
+
+    const sessions = getFilteredSessions(group);
+    const filterEl = document.getElementById("reportMonthFilter");
+    const periodLabel = (filterEl && filterEl.value !== "all") ? MONTH_NAMES[filterEl.value] : state.activeYear;
+    document.getElementById("reportGroupTitle").innerText = `Табель: ${group.name} (${periodLabel})`;
 
     let thead = `<tr><th>Спортсмен</th>` +
-      group.sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1] || ""}</small></th>`).join("") +
+      sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1] || ""}</small></th>`).join("") +
       `<th>Доп.</th><th>Итого</th><th>%</th></tr>`;
 
     let tbody = group.students.map(st => {
       let attended = 0;
       let extraCount = 0;
 
-      const cells = group.sessions.map(s => {
+      const cells = sessions.map(s => {
         const m = s.marks[st.id];
         const hasExtra = s.extras && s.extras[st.id];
         if (hasExtra) extraCount++;
@@ -827,7 +873,7 @@ function toggleExtra(studentId) {
         return `<td>${markSymbol}${hasExtra ? "<sup style='color:#c084fc'>+1</sup>" : ""}</td>`;
       }).join("");
 
-      const pct = group.sessions.length ? Math.round((attended / group.sessions.length) * 100) : 0;
+      const pct = sessions.length ? Math.round((attended / sessions.length) * 100) : 0;
       const totalAll = attended + extraCount;
 
       return `<tr>
@@ -842,14 +888,19 @@ function toggleExtra(studentId) {
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
- function exportCSV() {
+  function exportCSV() {
     const group = getCurrentGroup();
     if (!group) return;
-    let csv = "\uFEFFСпортсмен;" + group.sessions.map(s => s.date).join(";") + ";Доп. тр;Итого\n";
+
+    const sessions = getFilteredSessions(group);
+    const filterEl = document.getElementById("reportMonthFilter");
+    const periodLabel = (filterEl && filterEl.value !== "all") ? MONTH_NAMES[filterEl.value] : state.activeYear;
+
+    let csv = "\uFEFFСпортсмен;" + sessions.map(s => s.date).join(";") + ";Доп. тр;Итого\n";
     group.students.forEach(st => {
       let attended = 0;
       let extraCount = 0;
-      const row = group.sessions.map(s => {
+      const row = sessions.map(s => {
         const m = s.marks[st.id];
         const hasExtra = s.extras && s.extras[st.id];
         if (m === "present") attended++;
@@ -863,23 +914,23 @@ function toggleExtra(studentId) {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Табель_${group.name}_${state.activeYear}.csv`;
+    link.download = `Табель_${group.name}_${periodLabel}.csv`;
     link.click();
   }
-
   function renderSettings() {
     document.getElementById("manageYearLabel").innerText = state.activeYear;
     const group = getCurrentGroup();
 
     const stContainer = document.getElementById("manageStudentsList");
-    if (group) {
+   if (group) {
       document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
       stContainer.innerHTML = group.students.length
         ? group.students.map(st => `
             <div class="manage-item">
               <span>${st.name} <small style="color:var(--hint)">(${st.birth} г.р.)</small></span>
-              <div>
-                <button class="edit-btn" onclick="editStudent('${st.id}')">✏️</button>
+              <div style="display:flex; align-items:center;">
+                <button class="edit-btn" title="Перевести в другую группу" onclick="transferStudent('${st.id}')">↗️</button>
+                <button class="edit-btn" title="Редактировать" onclick="editStudent('${st.id}')">✏️</button>
                 <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
               </div>
             </div>
@@ -938,6 +989,45 @@ function toggleExtra(studentId) {
     renderSettings();
     renderJournal();
     renderReport();
+  }
+  function transferStudent(studentId) {
+    const groups = getGroups();
+    if (groups.length < 2) {
+      return alert("Для перевода нужна хотя бы ещё одна группа в этом учебном году.");
+    }
+
+    const currentGroup = getCurrentGroup();
+    const studentIdx = currentGroup.students.findIndex(s => s.id === studentId);
+    if (studentIdx === -1) return;
+    const student = currentGroup.students[studentIdx];
+
+    // Формируем список других групп с номерами для выбора
+    const otherGroups = groups
+      .map((g, idx) => ({ group: g, idx }))
+      .filter(item => item.idx !== currentGroupIndex);
+
+    const listText = otherGroups
+      .map((item, i) => `${i + 1} — ${item.group.name} (${item.group.scheduleText})`)
+      .join("\n");
+
+    const choice = prompt(`Куда перевести спортсмена «${student.name}»?\nВведите номер группы:\n\n${listText}`);
+    if (choice === null) return;
+
+    const chosenItem = otherGroups[parseInt(choice) - 1];
+    if (!chosenItem) {
+      return alert("Неверный номер группы. Перевод отменён.");
+    }
+
+    // Переносим карточку спортсмена в целевую группу и сортируем по алфавиту
+    currentGroup.students.splice(studentIdx, 1);
+    chosenItem.group.students.push(student);
+    chosenItem.group.students.sort((a, b) => a.name.localeCompare(b.name));
+
+    saveState();
+    renderSettings();
+    renderJournal();
+    renderReport();
+    alert(`Спортсмен «${student.name}» переведён в группу ${chosenItem.group.name}.`);
   }
 
   function deleteStudent(studentId) {
