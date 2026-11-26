@@ -1402,6 +1402,7 @@
   }
 
   function saveOrShareFile(content, filename, mimeType) {
+    alert("Кнопка сработала! Готовлю файл: " + filename);
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
