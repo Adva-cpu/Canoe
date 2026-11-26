@@ -411,6 +411,36 @@
       background: rgba(245, 158, 11, 0.18);
       color: var(--orange);
     }
+    .tg-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      margin-right: 6px;
+    }
+    .med-badge-warn {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(239, 68, 68, 0.18);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      margin-top: 3px;
+      font-weight: 600;
+    }
+    .med-badge-ok {
+      font-size: 11px;
+      color: var(--green);
+      margin-left: 6px;
+    }
   </style>
 </head>
 <body>
@@ -479,11 +509,15 @@
 
   <!-- ВКЛАДКА 3: УПРАВЛЕНИЕ ГРУППАМИ, УЧЕНИКАМИ И ГОДОМ -->
   <div id="tab-settings" class="hidden">
-    <div class="card-box">
+   <div class="card-box">
       <h3 id="manageStudentsTitle">Спортсмены группы</h3>
       <div class="row-2col">
         <input type="text" id="newStudentName" class="input-field" placeholder="Фамилия Имя" />
         <input type="number" id="newStudentYear" class="input-field" placeholder="Год рожд. (2014)" />
+      </div>
+      <div class="row-2col">
+        <input type="text" id="newStudentTg" class="input-field" placeholder="Telegram (@username)" />
+        <input type="date" id="newStudentMed" class="input-field" title="Срок действия медсправки" />
       </div>
       <button class="btn-primary" onclick="addStudent()">+ Добавить спортсмена</button>
       <div id="manageStudentsList" style="margin-top: 12px;"></div>
@@ -594,6 +628,30 @@
       <div class="modal-actions">
         <button class="btn-secondary" onclick="document.getElementById('sessionModal').classList.add('hidden')">Отмена</button>
         <button class="btn-primary" style="flex:1;" onclick="saveSessionModal()">Сохранить</button>
+      </div>
+    </div>
+  </div>
+  <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ СПОРТСМЕНА -->
+  <div id="studentModal" class="modal-overlay hidden" onclick="if(event.target.id==='studentModal') this.classList.add('hidden')">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>Карточка спортсмена</h3>
+      <input type="hidden" id="editStudentId" />
+
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Фамилия и Имя</label>
+      <input type="text" id="editStudentName" class="input-field" />
+
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Год рождения</label>
+      <input type="number" id="editStudentBirth" class="input-field" />
+
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Telegram спортсмена (@username или ссылка)</label>
+      <input type="text" id="editStudentTg" class="input-field" placeholder="@username" />
+
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Медсправка / диспансер действительна до</label>
+      <input type="date" id="editStudentMed" class="input-field" />
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="document.getElementById('studentModal').classList.add('hidden')">Отмена</button>
+        <button class="btn-primary" style="flex:1;" onclick="saveStudentModal()">Сохранить</button>
       </div>
     </div>
   </div>
@@ -851,7 +909,11 @@ function renderJournal() {
         <div class="student-row" onclick="toggleStatus('${st.id}')">
           <div class="student-info">
             <span class="student-name">${st.name}</span>
-            <span class="student-meta">${st.birth} г.р.</span>
+            <span class="student-meta">${st.birth} г.р.</span>${urgentMedBadge}
+            const med = getMedStatus(st.medDate);
+      const urgentMedBadge = (med && med.isUrgent)
+        ? `<span class="med-badge-warn">${med.text}</span>`
+        : "";
             ${perfBadge}
             ${hasExtra ? `<span style="font-size:11px; color:#c084fc; margin-top:2px;">⭐ ${hasExtra}</span>` : ""}
           </div>
@@ -1366,19 +1428,36 @@ function generateMonthSchedule() {
 const genLabel = document.getElementById("genGroupLabel");
     if (genLabel) genLabel.innerText = group ? group.name : "нет группы";
     const stContainer = document.getElementById("manageStudentsList");
-   if (group) {
+  if (group) {
       document.getElementById("manageStudentsTitle").innerText = `Спортсмены группы ${group.name}`;
       stContainer.innerHTML = group.students.length
-        ? group.students.map(st => `
-            <div class="manage-item">
-              <span>${st.name} <small style="color:var(--hint)">(${st.birth} г.р.)</small></span>
-              <div style="display:flex; align-items:center;">
-                <button class="edit-btn" title="Перевести в другую группу" onclick="transferStudent('${st.id}')">↗️</button>
-                <button class="edit-btn" title="Редактировать" onclick="editStudent('${st.id}')">✏️</button>
-                <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
+        ? group.students.map(st => {
+            const tgUrl = formatTgUrl(st.tg);
+            const med = getMedStatus(st.medDate);
+            const medHtml = med
+              ? (med.isUrgent
+                  ? `<div class="med-badge-warn">${med.text}</div>`
+                  : `<span class="med-badge-ok">🏥 ${med.text}</span>`)
+              : "";
+
+            return `
+              <div class="manage-item">
+                <div>
+                  <div>
+                    <strong>${st.name}</strong> <small style="color:var(--hint)">(${st.birth} г.р.)</small>
+                    ${med && !med.isUrgent ? medHtml : ""}
+                  </div>
+                  ${med && med.isUrgent ? medHtml : ""}
+                </div>
+                <div style="display:flex; align-items:center;">
+                  ${tgUrl ? `<a href="${tgUrl}" target="_blank" class="tg-link-btn" onclick="event.stopPropagation()">✈️ ТГ</a>` : ""}
+                  <button class="edit-btn" title="Перевести в другую группу" onclick="transferStudent('${st.id}')">↗️</button>
+                  <button class="edit-btn" title="Редактировать" onclick="editStudent('${st.id}')">✏️</button>
+                  <button class="del-btn" onclick="deleteStudent('${st.id}')">Удалить</button>
+                </div>
               </div>
-            </div>
-          `).join("")
+            `;
+          }).join("")
         : `<div style="font-size:13px; color:var(--hint);">Список пуст</div>`;
     } else {
       document.getElementById("manageStudentsTitle").innerText = "Спортсмены (сначала создайте группу)";
@@ -1396,17 +1475,54 @@ const genLabel = document.getElementById("genGroupLabel");
       </div>
     `).join("");
   }
+function formatTgUrl(raw) {
+    if (!raw) return "";
+    const clean = raw.trim();
+    if (clean.startsWith("http://") || clean.startsWith("https://")) return clean;
+    const username = clean.replace(/^@/, "");
+    return username ? `https://t.me/${username}` : "";
+  }
 
+  function getMedStatus(medDateStr) {
+    if (!medDateStr) return null; // Дата справки не указана
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expDate = new Date(medDateStr + "T00:00:00");
+    if (isNaN(expDate.getTime())) return null;
+
+    const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+    const formatted = medDateStr.split("-").reverse().join("."); // ГГГГ-ММ-ДД -> ДД.ММ.ГГГГ
+
+    if (diffDays < 0) {
+      return { isUrgent: true, text: `🚨 Справка истекла (${formatted})` };
+    }
+    if (diffDays <= 28) {
+      return { isUrgent: true, text: `🏥 Справка до ${formatted} (ост. ${diffDays} дн.)` };
+    }
+    return { isUrgent: false, text: `до ${formatted}` };
+  }
   function addStudent() {
     const group = getCurrentGroup();
     if (!group) return alert("Сначала создайте группу");
     const name = document.getElementById("newStudentName").value.trim();
     const birth = document.getElementById("newStudentYear").value.trim() || "2014";
+    const tgRaw = document.getElementById("newStudentTg").value.trim();
+    const medDate = document.getElementById("newStudentMed").value;
+
     if (!name) return alert("Введите ФИО спортсмена");
 
-    group.students.push({ id: "st_" + Date.now(), name, birth });
+    group.students.push({
+      id: "st_" + Date.now(),
+      name,
+      birth,
+      tg: tgRaw,
+      medDate
+    });
     group.students.sort((a, b) => a.name.localeCompare(b.name));
+
     document.getElementById("newStudentName").value = "";
+    document.getElementById("newStudentTg").value = "";
+    document.getElementById("newStudentMed").value = "";
     saveState();
     renderSettings();
     renderJournal();
@@ -1419,15 +1535,35 @@ const genLabel = document.getElementById("genGroupLabel");
     const student = group.students.find(s => s.id === studentId);
     if (!student) return;
 
-    const newName = prompt("Фамилия и Имя спортсмена:", student.name);
-    if (newName === null) return;
-    const newBirth = prompt("Год рождения:", student.birth);
-    if (newBirth === null) return;
+    document.getElementById("editStudentId").value = student.id;
+    document.getElementById("editStudentName").value = student.name;
+    document.getElementById("editStudentBirth").value = student.birth;
+    document.getElementById("editStudentTg").value = student.tg || "";
+    document.getElementById("editStudentMed").value = student.medDate || "";
+    document.getElementById("studentModal").classList.remove("hidden");
+  }
 
-    if (newName.trim()) student.name = newName.trim();
-    if (newBirth.trim()) student.birth = newBirth.trim();
+  function saveStudentModal() {
+    const group = getCurrentGroup();
+    if (!group) return;
+    const studentId = document.getElementById("editStudentId").value;
+    const student = group.students.find(s => s.id === studentId);
+    if (!student) return;
+
+    const newName = document.getElementById("editStudentName").value.trim();
+    const newBirth = document.getElementById("editStudentBirth").value.trim();
+    const newTg = document.getElementById("editStudentTg").value.trim();
+    const newMed = document.getElementById("editStudentMed").value;
+
+    if (!newName) return alert("Введите фамилию и имя спортсмена");
+
+    student.name = newName;
+    if (newBirth) student.birth = newBirth;
+    student.tg = newTg;
+    student.medDate = newMed;
 
     group.students.sort((a, b) => a.name.localeCompare(b.name));
+    document.getElementById("studentModal").classList.add("hidden");
 
     saveState();
     renderSettings();
