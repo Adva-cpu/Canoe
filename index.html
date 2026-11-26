@@ -638,7 +638,7 @@
 
       <div id="modalTestWrap" class="hidden">
         <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Дистанция или упражнение</label>
-        <input type="text" id="modalSessionTestName" class="input-field" placeholder="Напр: 500 м (вода) или Жим лёжа" />
+        <input type="text" id="modalSessionTestName" class="input-field" placeholder="Через запятую: 200 м, 500 м или Жим, Тяга" />
       </div>
 
       <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Примечание (необязательно)</label>
@@ -908,10 +908,20 @@
         ? `<span class="med-badge-warn">${med.text}</span>`
         : "";
 
-      let perfBadge = "";
-      if (isTest && custom.result) {
-        perfBadge = `<span class="vol-badge test-badge">⏱️ ${custom.result}</span>`;
-      } else if (!isTest && status === "present") {
+     let perfBadge = "";
+      let hasTestRes = false;
+      if (isTest) {
+        if (custom.results && Object.keys(custom.results).length > 0) {
+          hasTestRes = true;
+          const summary = Object.entries(custom.results)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" • ");
+          perfBadge = `<span class="vol-badge test-badge">⏱️ ${summary}</span>`;
+        } else if (custom.result) {
+          hasTestRes = true;
+          perfBadge = `<span class="vol-badge test-badge">⏱️ ${custom.result}</span>`;
+        }
+      } else if (status === "present") {
         const effectiveVol = custom.vol !== undefined ? custom.vol : (session.volume || 0);
         if (effectiveVol > 0) {
           const isCustom = custom.vol !== undefined && custom.vol !== session.volume;
@@ -936,8 +946,8 @@
             ${hasExtra ? `<span style="font-size:11px; color:#c084fc; margin-top:2px;">⭐ +1 доп.</span>` : ""}
           </div>
           <div style="display:flex; align-items:center; gap:5px;">
-            <button class="extra-btn" title="${isTest ? "Ввести результат" : "Изменить объём"}" onclick="event.stopPropagation(); editStudentPerformance('${st.id}')">
-              ${isTest ? (custom.result ? "✏️" : "⏱️") : "📊"}
+           <button class="extra-btn" title="${isTest ? "Ввести результаты" : "Изменить объём"}" onclick="event.stopPropagation(); editStudentPerformance('${st.id}')">
+              ${isTest ? (hasTestRes ? "✏️" : "⏱️") : "📊"}
             </button>
             <button class="extra-btn ${hasExtra ? "active" : ""}" onclick="event.stopPropagation(); toggleExtra('${st.id}')">
               ${hasExtra ? "⭐" : "+1"}
@@ -1103,7 +1113,7 @@
     }
   }
 
-  function saveSessionModal() {
+ function saveSessionModal() {
     const group = getCurrentGroup();
     if (!group) return;
 
@@ -1116,13 +1126,18 @@
     const noteVal = document.getElementById("modalSessionNote").value.trim();
 
     if (envVal === "test" && !testNameVal) {
-      return alert("Укажите название дистанции или упражнения (например, 500 м или Жим лёжа)");
+      return alert("Укажите дистанции или упражнения через запятую (напр: 200 м, 500 м)");
     }
+
+    // Разбиваем строку на список отдельных тестов (если ввели через запятую)
+    const testsArray = (envVal === "test")
+      ? testNameVal.split(",").map(t => t.trim()).filter(Boolean)
+      : [];
 
     const envCfg = ENV_CONFIG[envVal];
     let displayType = `${envCfg.icon} ${envCfg.label}`;
     if (envVal === "test") {
-      displayType = `⏱️ Прикидка: ${testNameVal}`;
+      displayType = `⏱️ Прикидка: ${testsArray.join(" + ")}`;
     } else if (volVal > 0) {
       displayType += ` • ${volVal} ${envCfg.unit}`;
     }
@@ -1135,7 +1150,8 @@
         type: displayType,
         env: envVal,
         volume: envVal === "test" ? 0 : volVal,
-        testName: envVal === "test" ? testNameVal : "",
+        testName: envVal === "test" ? testsArray.join(", ") : "",
+        tests: testsArray,
         note: noteVal,
         marks: {},
         customData: {}
@@ -1147,7 +1163,8 @@
       session.type = displayType;
       session.env = envVal;
       session.volume = envVal === "test" ? 0 : volVal;
-      session.testName = envVal === "test" ? testNameVal : "";
+      session.testName = envVal === "test" ? testsArray.join(", ") : "";
+      session.tests = testsArray;
       session.note = noteVal;
     }
 
@@ -1168,10 +1185,38 @@
     const isTest = (session.env === "test");
 
     if (isTest) {
-      const res = prompt(`Результат для «${student.name}»\n(${session.testName || "Контрольная"}):`, current.result || "");
-      if (res === null) return;
-      if (res.trim()) {
-        session.customData[studentId] = { ...current, result: res.trim() };
+      // Берём список тестов (с поддержкой старых одиночных записей)
+      const testList = (session.tests && session.tests.length)
+        ? session.tests
+        : (session.testName ? [session.testName] : ["Тест"]);
+
+      // Переносим старый одиночный формат в объект results, если он был
+      const prevResults = { ...(current.results || {}) };
+      if (current.result && !prevResults[testList[0]]) {
+        prevResults[testList[0]] = current.result;
+      }
+
+      const updatedResults = {};
+      let hasAnyResult = false;
+
+      for (let i = 0; i < testList.length; i++) {
+        const tName = testList[i];
+        const prevVal = prevResults[tName] || "";
+        const promptTitle = testList.length > 1
+          ? `Упражнение ${i + 1} из ${testList.length}: «${tName}»\nСпортсмен: ${student.name}\n(Оставьте пустым, если не выполнял)`
+          : `Результат для «${student.name}»\n(${tName}):`;
+
+        const ans = prompt(promptTitle, prevVal);
+        if (ans === null) return; // Нажали Отмена — прерываем без изменений
+
+        if (ans.trim()) {
+          updatedResults[tName] = ans.trim();
+          hasAnyResult = true;
+        }
+      }
+
+      if (hasAnyResult) {
+        session.customData[studentId] = { results: updatedResults };
         session.marks[studentId] = "present";
       } else {
         delete session.customData[studentId];
@@ -1274,6 +1319,36 @@
         return;
       }
 
+      // Разворачиваем все упражнения из всех контрольных дней в единый список столбцов
+      const testColumns = [];
+      testSessions.forEach(s => {
+        const list = (s.tests && s.tests.length) ? s.tests : [s.testName || "Тест"];
+        list.forEach(tName => {
+          testColumns.push({ session: s, testName: tName });
+        });
+      });
+
+      let thead = `<tr><th>Спортсмен</th>` +
+        testColumns.map(col => `<th>${col.testName}<br><small style="color:var(--hint); font-weight:400;">${col.session.date}</small></th>`).join("") +
+        `</tr>`;
+
+      let tbody = group.students.map(st => {
+        const cells = testColumns.map(col => {
+          const cData = col.session.customData && col.session.customData[st.id];
+          let val = "";
+          if (cData) {
+            if (cData.results && cData.results[col.testName]) val = cData.results[col.testName];
+            else if (cData.result) val = cData.result;
+          }
+          return `<td>${val ? `<strong style="color:var(--orange);">${val}</strong>` : "—"}</td>`;
+        }).join("");
+        return `<tr><td>${st.name}</td>${cells}</tr>`;
+      }).join("");
+
+      document.getElementById("reportTable").innerHTML = thead + tbody;
+      return;
+    }
+
       let thead = `<tr><th>Спортсмен</th>` +
         testSessions.map(s => `<th>${s.testName || "Тест"}<br><small style="color:var(--hint); font-weight:400;">${s.date}</small></th>`).join("") +
         `</tr>`;
@@ -1357,11 +1432,23 @@
 
     if (mode === "tests") {
       const testSessions = sessions.filter(s => s.env === "test");
-      let csv = "\uFEFFСпортсмен;" + testSessions.map(s => `${s.testName} (${s.date})`).join(";") + "\n";
+      const testColumns = [];
+      testSessions.forEach(s => {
+        const list = (s.tests && s.tests.length) ? s.tests : [s.testName || "Тест"];
+        list.forEach(tName => testColumns.push({ session: s, testName: tName }));
+      });
+
+      let csv = "\uFEFFСпортсмен;" + testColumns.map(col => `${col.testName} (${col.session.date})`).join(";") + "\n";
       group.students.forEach(st => {
-        const row = testSessions.map(s => (s.customData && s.customData[st.id] && s.customData[st.id].result) || "");
+        const row = testColumns.map(col => {
+          const cData = col.session.customData && col.session.customData[st.id];
+          if (!cData) return "";
+          if (cData.results && cData.results[col.testName]) return cData.results[col.testName];
+          return cData.result || "";
+        });
         csv += `${st.name};${row.join(";")}\n`;
       });
+
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
