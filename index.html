@@ -584,6 +584,7 @@
       </p>
       <button class="btn-primary" onclick="createNextAcademicYear()">📅 Начать новый учебный год</button>
     </div>
+
     <div class="card-box">
       <h3>Резервная копия данных</h3>
       <p style="font-size:13px; color:var(--hint); margin-top:0;">
@@ -720,7 +721,14 @@
 
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
- const defaultData = {
+  function getFormattedToday() {
+    const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+    const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+    const d = new Date();
+    return `${d.getDate()} ${months[d.getMonth()]} (${days[d.getDay()]})`;
+  }
+
+  const defaultData = {
     activeYear: "2026–2027",
     years: {
       "2026–2027": {
@@ -816,13 +824,6 @@
     return groups[currentGroupIndex];
   }
 
-  function getFormattedToday() {
-    const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-    const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-    const d = new Date();
-    return `${d.getDate()} ${months[d.getMonth()]} (${days[d.getDay()]})`;
-  }
-
   function renderHeader() {
     const yearSelect = document.getElementById("yearSelect");
     yearSelect.innerHTML = Object.keys(state.years).map(y =>
@@ -908,7 +909,7 @@
         ? `<span class="med-badge-warn">${med.text}</span>`
         : "";
 
-     let perfBadge = "";
+      let perfBadge = "";
       let hasTestRes = false;
       if (isTest) {
         if (custom.results && Object.keys(custom.results).length > 0) {
@@ -946,7 +947,7 @@
             ${hasExtra ? `<span style="font-size:11px; color:#c084fc; margin-top:2px;">⭐ +1 доп.</span>` : ""}
           </div>
           <div style="display:flex; align-items:center; gap:5px;">
-           <button class="extra-btn" title="${isTest ? "Ввести результаты" : "Изменить объём"}" onclick="event.stopPropagation(); editStudentPerformance('${st.id}')">
+            <button class="extra-btn" title="${isTest ? "Ввести результаты" : "Изменить объём"}" onclick="event.stopPropagation(); editStudentPerformance('${st.id}')">
               ${isTest ? (hasTestRes ? "✏️" : "⏱️") : "📊"}
             </button>
             <button class="extra-btn ${hasExtra ? "active" : ""}" onclick="event.stopPropagation(); toggleExtra('${st.id}')">
@@ -1113,7 +1114,7 @@
     }
   }
 
- function saveSessionModal() {
+  function saveSessionModal() {
     const group = getCurrentGroup();
     if (!group) return;
 
@@ -1129,7 +1130,6 @@
       return alert("Укажите дистанции или упражнения через запятую (напр: 200 м, 500 м)");
     }
 
-    // Разбиваем строку на список отдельных тестов (если ввели через запятую)
     const testsArray = (envVal === "test")
       ? testNameVal.split(",").map(t => t.trim()).filter(Boolean)
       : [];
@@ -1185,12 +1185,10 @@
     const isTest = (session.env === "test");
 
     if (isTest) {
-      // Берём список тестов (с поддержкой старых одиночных записей)
       const testList = (session.tests && session.tests.length)
         ? session.tests
         : (session.testName ? [session.testName] : ["Тест"]);
 
-      // Переносим старый одиночный формат в объект results, если он был
       const prevResults = { ...(current.results || {}) };
       if (current.result && !prevResults[testList[0]]) {
         prevResults[testList[0]] = current.result;
@@ -1207,7 +1205,7 @@
           : `Результат для «${student.name}»\n(${tName}):`;
 
         const ans = prompt(promptTitle, prevVal);
-        if (ans === null) return; // Нажали Отмена — прерываем без изменений
+        if (ans === null) return;
 
         if (ans.trim()) {
           updatedResults[tName] = ans.trim();
@@ -1319,7 +1317,6 @@
         return;
       }
 
-      // Разворачиваем все упражнения из всех контрольных дней в единый список столбцов
       const testColumns = [];
       testSessions.forEach(s => {
         const list = (s.tests && s.tests.length) ? s.tests : [s.testName || "Тест"];
@@ -1341,22 +1338,6 @@
             else if (cData.result) val = cData.result;
           }
           return `<td>${val ? `<strong style="color:var(--orange);">${val}</strong>` : "—"}</td>`;
-        }).join("");
-        return `<tr><td>${st.name}</td>${cells}</tr>`;
-      }).join("");
-
-      document.getElementById("reportTable").innerHTML = thead + tbody;
-      return;
-    }
-
-      let thead = `<tr><th>Спортсмен</th>` +
-        testSessions.map(s => `<th>${s.testName || "Тест"}<br><small style="color:var(--hint); font-weight:400;">${s.date}</small></th>`).join("") +
-        `</tr>`;
-
-      let tbody = group.students.map(st => {
-        const cells = testSessions.map(s => {
-          const res = s.customData && s.customData[st.id] && s.customData[st.id].result;
-          return `<td>${res ? `<strong style="color:var(--orange);">${res}</strong>` : "—"}</td>`;
         }).join("");
         return `<tr><td>${st.name}</td>${cells}</tr>`;
       }).join("");
@@ -1561,7 +1542,8 @@
     const username = clean.replace(/^@/, "");
     return username ? `https://t.me/${username}` : "";
   }
-function openTgChat(url) {
+
+  function openTgChat(url) {
     if (!url) return;
     if (tg && typeof tg.openTelegramLink === "function" && url.startsWith("https://t.me/")) {
       tg.openTelegramLink(url);
@@ -1571,6 +1553,7 @@ function openTgChat(url) {
       window.open(url, "_blank");
     }
   }
+
   function getMedStatus(medDateStr) {
     if (!medDateStr) return null;
     const today = new Date();
@@ -1782,12 +1765,13 @@ function openTgChat(url) {
     renderReport();
     alert(`Создан учебный год ${nextYearName}! Группы переведены на ступень выше.`);
   }
-function downloadBackup() {
+
+  function downloadBackup() {
     const jsonStr = JSON.stringify(state, null, 2);
     const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
 
-    const dateTag = new Date().toISOString().slice(0, 10); // ГГГГ-ММ-ДД
+    const dateTag = new Date().toISOString().slice(0, 10);
     const link = document.createElement("a");
     link.href = url;
     link.download = `CanoeJournal_Backup_${dateTag}.json`;
@@ -1806,7 +1790,6 @@ function downloadBackup() {
       try {
         const parsed = JSON.parse(e.target.result);
 
-        // Проверяем, что файл действительно от нашего журнала
         if (!parsed || !parsed.activeYear || !parsed.years || typeof parsed.years !== "object") {
           throw new Error("Неверный формат файла резервной копии");
         }
@@ -1830,11 +1813,12 @@ function downloadBackup() {
         alert("⚠️ Ошибка чтения файла: убедитесь, что выбран правильный JSON-файл резервной копии.");
         console.error(err);
       } finally {
-        event.target.value = ""; // Сбрасываем input, чтобы можно было выбрать тот же файл повторно
+        event.target.value = "";
       }
     };
     reader.readAsText(file);
   }
+
   function switchTab(tabName, btnEl) {
     ["journal", "report", "settings"].forEach(t => {
       document.getElementById("tab-" + t).classList.add("hidden");
