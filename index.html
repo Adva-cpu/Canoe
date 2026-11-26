@@ -1420,79 +1420,16 @@
 
   let lastExportData = { content: "", filename: "", mimeType: "" };
 
-  async function saveOrShareFile(content, filename, mimeType) {
-    lastExportData = { content, filename, mimeType };
+ function saveOrShareFile(content, filename, mimeType) {
     const blob = new Blob([content], { type: mimeType });
-
-    // 1. Классическое скачивание (для ПК)
-    try {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (e) {}
-
-    // 2. Отправка готового файла прямо в чат от твоего Telegram-бота
-    if (BOT_TOKEN && BOT_TOKEN !== "ВСТАВЬ_ТОКЕН_БОТА" && currentUserId) {
-      try {
-        setSyncStatus("⏳ Отправка файла в чат...", "#60a5fa");
-        const formData = new FormData();
-        formData.append("chat_id", currentUserId);
-        formData.append("document", blob, filename);
-        formData.append("caption", `📄 ${filename}`);
-
-        const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
-          method: "POST",
-          body: formData
-        });
-        const resJson = await resp.json();
-        if (resJson.ok) {
-          setSyncStatus("☁️ Синхронизировано", "var(--green)");
-          alert(`✅ Файл «${filename}» отправлен вам в личные сообщения от бота!`);
-          return;
-        }
-      } catch (err) {
-        console.error("Ошибка отправки через бота:", err);
-      }
-      setSyncStatus("☁️ Синхронизировано", "var(--green)");
-    }
-
-    // 3. Окно с текстом и кнопками копирования/отправки
-    document.getElementById("exportFallbackTitle").innerText = filename;
-    document.getElementById("exportFallbackText").value = content.replace(/^\uFEFF/, "");
-    document.getElementById("exportFallbackModal").classList.remove("hidden");
-  }
-
-  function copyExportFallback() {
-    const ta = document.getElementById("exportFallbackText");
-    ta.select();
-    ta.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(ta.value).then(() => {
-      alert("✅ Скопировано в буфер обмена!");
-    }).catch(() => {
-      document.execCommand("copy");
-      alert("✅ Скопировано!");
-    });
-  }
-
-  async function tryNativeShare() {
-    try {
-      const blob = new Blob([lastExportData.content], { type: "text/plain" });
-      const file = new File([blob], lastExportData.filename, { type: "text/plain" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: lastExportData.filename });
-      } else {
-        alert("Ваш телефон не поддерживает прямую передачу файлов из мини-приложения. Нажмите «📋 Скопировать» и вставьте текст в Избранное.");
-      }
-    } catch (err) {
-      if (err && err.name !== "AbortError") {
-        alert("Не удалось открыть меню отправки. Используйте кнопку «📋 Скопировать».");
-      }
-    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function exportCSV() {
