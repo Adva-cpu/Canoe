@@ -456,7 +456,7 @@
   <div class="header">
     <div class="header-top">
       <div class="app-title">
-        <span>🛶 Каноэ • Журнал</span>
+        <span>🛶 Каноэ • Журнал v2</span>
         <span id="syncStatus" class="sync-status">⏳ Загрузка из облака...</span>
       </div>
       <div class="header-controls">
@@ -645,11 +645,12 @@
       <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Примечание (необязательно)</label>
       <input type="text" id="modalSessionNote" class="input-field" placeholder="Напр: 4×1000 м или разминка" />
 
-   <div class="modal-actions">
-        <button class="btn-secondary" onclick="document.getElementById('exportFallbackModal').classList.add('hidden')">Закрыть</button>
-        <button class="btn-secondary" onclick="tryNativeShare()">📤 Файлом</button>
-        <button class="btn-primary" style="flex:1;" onclick="copyExportFallback()">📋 Скопировать</button>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="document.getElementById('sessionModal').classList.add('hidden')">Отмена</button>
+        <button class="btn-primary" style="flex:1;" onclick="saveSessionModal()">Сохранить</button>
       </div>
+    </div>
+  </div>
 
   <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ СПОРТСМЕНА -->
   <div id="studentModal" class="modal-overlay hidden" onclick="if(event.target.id==='studentModal') this.classList.add('hidden')">
@@ -675,27 +676,30 @@
       </div>
     </div>
   </div>
-<!-- МОДАЛЬНОЕ ОКНО ЭКСПОРТА (ЗАПАСНОЙ ВАРИАНТ) -->
+
+  <!-- МОДАЛЬНОЕ ОКНО ЭКСПОРТА (КОПИРОВАНИЕ ИЛИ ОТПРАВКА) -->
   <div id="exportFallbackModal" class="modal-overlay hidden" onclick="if(event.target.id==='exportFallbackModal') this.classList.add('hidden')">
     <div class="modal-card" onclick="event.stopPropagation()">
       <h3 id="exportFallbackTitle">Экспорт данных</h3>
       <p style="font-size:12px; color:var(--hint); margin-top:0;">
-        Если скачивание заблокировано телефоном, скопируйте текст ниже и вставьте в заметки или Excel:
+        Нажмите «Скопировать», чтобы вставить таблицу в заметки/Excel, или «Файлом» для отправки через меню телефона:
       </p>
       <textarea id="exportFallbackText" class="input-field" rows="6" readonly style="font-family:monospace; font-size:11px; resize:none;"></textarea>
       <div class="modal-actions">
         <button class="btn-secondary" onclick="document.getElementById('exportFallbackModal').classList.add('hidden')">Закрыть</button>
+        <button class="btn-secondary" onclick="tryNativeShare()">📤 Файлом</button>
         <button class="btn-primary" style="flex:1;" onclick="copyExportFallback()">📋 Скопировать</button>
       </div>
     </div>
   </div>
-  
+
 <script>
   // ==========================================
-  // НАСТРОЙКИ SUPABASE
+  // НАСТРОЙКИ SUPABASE И БОТА
   // ==========================================
   const SUPABASE_URL = "https://egpminbmdimdrnofsiqh.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVncG1pbmJtZGltZHJub2ZzaXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDM1OTYsImV4cCI6MjExMTExOTU5Nn0.iicrPN8eU8A2CJNo-I6QYecMED1h8Kx83LI4hf1Z5mI";
+  const BOT_TOKEN = "ВСТАВЬ_ТОКЕН_БОТА"; // Токен из @BotFather, чтобы бот сам присылал Excel и JSON в чат
 
   // ==========================================
   // ЗАЩИТА ДОСТУПА ПО TELEGRAM ID
@@ -1414,49 +1418,53 @@
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
- let lastExportData = { content: "", filename: "", mimeType: "" };
+  let lastExportData = { content: "", filename: "", mimeType: "" };
 
-  function saveOrShareFile(content, filename, mimeType) {
+  async function saveOrShareFile(content, filename, mimeType) {
     lastExportData = { content, filename, mimeType };
+    const blob = new Blob([content], { type: mimeType });
 
-    // На ПК (Telegram Desktop) пробуем скачать сразу
-    const isDesktop = !tg || (tg.platform !== "android" && tg.platform !== "ios");
-    if (isDesktop) {
+    // 1. Классическое скачивание (для ПК)
+    try {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {}
+
+    // 2. Отправка готового файла прямо в чат от твоего Telegram-бота
+    if (BOT_TOKEN && BOT_TOKEN !== "ВСТАВЬ_ТОКЕН_БОТА" && currentUserId) {
       try {
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        console.warn(e);
+        setSyncStatus("⏳ Отправка файла в чат...", "#60a5fa");
+        const formData = new FormData();
+        formData.append("chat_id", currentUserId);
+        formData.append("document", blob, filename);
+        formData.append("caption", `📄 ${filename}`);
+
+        const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+          method: "POST",
+          body: formData
+        });
+        const resJson = await resp.json();
+        if (resJson.ok) {
+          setSyncStatus("☁️ Синхронизировано", "var(--green)");
+          alert(`✅ Файл «${filename}» отправлен вам в личные сообщения от бота!`);
+          return;
+        }
+      } catch (err) {
+        console.error("Ошибка отправки через бота:", err);
       }
+      setSyncStatus("☁️ Синхронизировано", "var(--green)");
     }
 
-    // Всегда открываем окно с текстом и кнопкой копирования, чтобы ничего не зависало молча
+    // 3. Окно с текстом и кнопками копирования/отправки
     document.getElementById("exportFallbackTitle").innerText = filename;
     document.getElementById("exportFallbackText").value = content.replace(/^\uFEFF/, "");
     document.getElementById("exportFallbackModal").classList.remove("hidden");
-  }
-
-  async function tryNativeShare() {
-    try {
-      const blob = new Blob([lastExportData.content], { type: "text/plain" });
-      const file = new File([blob], lastExportData.filename, { type: "text/plain" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: lastExportData.filename });
-      } else {
-        alert("Ваш телефон не поддерживает прямую передачу файлов из мини-приложения. Нажмите «📋 Скопировать» и вставьте текст в сообщение себе в Избранное.");
-      }
-    } catch (err) {
-      if (err && err.name !== "AbortError") {
-        alert("Не удалось открыть меню отправки. Используйте кнопку «📋 Скопировать».");
-      }
-    }
   }
 
   function copyExportFallback() {
@@ -1469,6 +1477,22 @@
       document.execCommand("copy");
       alert("✅ Скопировано!");
     });
+  }
+
+  async function tryNativeShare() {
+    try {
+      const blob = new Blob([lastExportData.content], { type: "text/plain" });
+      const file = new File([blob], lastExportData.filename, { type: "text/plain" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: lastExportData.filename });
+      } else {
+        alert("Ваш телефон не поддерживает прямую передачу файлов из мини-приложения. Нажмите «📋 Скопировать» и вставьте текст в Избранное.");
+      }
+    } catch (err) {
+      if (err && err.name !== "AbortError") {
+        alert("Не удалось открыть меню отправки. Используйте кнопку «📋 Скопировать».");
+      }
+    }
   }
 
   function exportCSV() {
@@ -1527,7 +1551,7 @@
       csv += `${st.name};${row.join(";")};${extraCount};${attended + extraCount};${waterKm};${ergoKm};${otherHours}\n`;
     });
 
-    saveOrShareFile(csv, `Табель_${group.name}_${periodLabel}.csv`, "text/csv;charset=utf-8");
+    saveOrShareFile(csv, `Табель_Объёмы_${group.name}_${periodLabel}.csv`, "text/csv;charset=utf-8");
   }
 
   function renderSettings() {
@@ -1828,7 +1852,7 @@
     alert(`Создан учебный год ${nextYearName}! Группы переведены на ступень выше.`);
   }
 
- function downloadBackup() {
+  function downloadBackup() {
     const jsonStr = JSON.stringify(state, null, 2);
     const dateTag = new Date().toISOString().slice(0, 10);
     saveOrShareFile(jsonStr, `CanoeJournal_Backup_${dateTag}.json`, "application/json;charset=utf-8");
