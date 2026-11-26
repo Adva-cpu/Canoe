@@ -361,6 +361,56 @@
     .nav-icon { font-size: 20px; }
     .empty-state { padding: 24px; text-align: center; color: var(--hint); font-size: 14px; }
     .hidden { display: none !important; }
+    /* Модальное окно настроек тренировки и результатов */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .modal-card h3 { margin: 0 0 12px 0; font-size: 16px; }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 11px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .vol-badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      margin-top: 3px;
+      font-weight: 600;
+    }
+    .test-badge {
+      background: rgba(245, 158, 11, 0.18);
+      color: var(--orange);
+    }
   </style>
 </head>
 <body>
@@ -407,11 +457,16 @@
 
   <!-- ВКЛАДКА 2: ТАБЕЛЬ ЗА МЕСЯЦ -->
  <!-- ВКЛАДКА 2: ТАБЕЛЬ ЗА МЕСЯЦ -->
+<!-- ВКЛАДКА 2: ТАБЕЛЬ ЗА МЕСЯЦ -->
   <div id="tab-report" class="hidden">
     <div class="table-wrap">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
         <strong id="reportGroupTitle">Табель группы</strong>
-        <div style="display:flex; gap:6px; align-items:center;">
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <select id="reportModeSelect" class="year-select" style="font-size:12px; padding:6px 8px;" onchange="renderReport()">
+            <option value="attendance">Посещаемость и объёмы</option>
+            <option value="tests">Контрольные и ОФП</option>
+          </select>
           <select id="reportMonthFilter" class="year-select" style="font-size:12px; padding:6px 8px;" onchange="renderReport()">
             <option value="all">Все месяцы</option>
           </select>
@@ -505,7 +560,43 @@
       <span>Управление</span>
     </button>
   </div>
+<!-- МОДАЛЬНОЕ ОКНО ТРЕНИРОВКИ / ПРИКИДКИ -->
+  <div id="sessionModal" class="modal-overlay hidden" onclick="closeSessionModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3 id="sessionModalTitle">Параметры тренировки</h3>
+      
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Дата</label>
+      <input type="text" id="modalSessionDate" class="input-field" placeholder="26 ноя (Чт)" />
 
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Среда / режим работы</label>
+      <select id="modalSessionEnv" class="input-field" onchange="toggleModalTestFields()">
+        <option value="water">🛶 Вода (км)</option>
+        <option value="ergo">🚣 Эргометр (км)</option>
+        <option value="gym">🏋️ Зал / ОФП (ч)</option>
+        <option value="cardio">🎿 Лыжи / Бег (км)</option>
+        <option value="pool">🏊 Бассейн (ч)</option>
+        <option value="test">⏱️ Контрольная / Тесты</option>
+      </select>
+
+      <div id="modalVolumeWrap">
+        <label id="modalVolumeLabel" style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Плановый объём группы (км или ч)</label>
+        <input type="number" step="0.1" id="modalSessionVolume" class="input-field" placeholder="Например: 10" />
+      </div>
+
+      <div id="modalTestWrap" class="hidden">
+        <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Дистанция или упражнение</label>
+        <input type="text" id="modalSessionTestName" class="input-field" placeholder="Напр: 500 м (вода) или Жим лёжа" />
+      </div>
+
+      <label style="font-size:12px; color:var(--hint); display:block; margin-bottom:4px;">Примечание (необязательно)</label>
+      <input type="text" id="modalSessionNote" class="input-field" placeholder="Напр: 4×1000 м или разминка" />
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="document.getElementById('sessionModal').classList.add('hidden')">Отмена</button>
+        <button class="btn-primary" style="flex:1;" onclick="saveSessionModal()">Сохранить</button>
+      </div>
+    </div>
+  </div>
 <script>
   // ==========================================
   // НАСТРОЙКИ SUPABASE
@@ -706,7 +797,7 @@
     renderSettings();
   }
 
-  function renderJournal() {
+function renderJournal() {
     const group = getCurrentGroup();
     const listEl = document.getElementById("studentList");
 
@@ -727,11 +818,27 @@
       return;
     }
 
+    const isTest = (session.env === "test");
+    const envCfg = ENV_CONFIG[session.env || "water"] || { unit: "км" };
     let presentCount = 0;
+
     listEl.innerHTML = group.students.map(st => {
       const status = session.marks[st.id] || "none";
       if (status === "present") presentCount++;
       const hasExtra = session.extras && session.extras[st.id];
+      const custom = (session.customData && session.customData[st.id]) || {};
+
+      // Формируем бейдж объёма или результата теста под фамилией
+      let perfBadge = "";
+      if (isTest && custom.result) {
+        perfBadge = `<span class="vol-badge test-badge">⏱️ ${custom.result}</span>`;
+      } else if (!isTest && status === "present") {
+        const effectiveVol = custom.vol !== undefined ? custom.vol : (session.volume || 0);
+        if (effectiveVol > 0) {
+          const isCustom = custom.vol !== undefined && custom.vol !== session.volume;
+          perfBadge = `<span class="vol-badge">${effectiveVol} ${envCfg.unit}${isCustom ? " (инд.)" : ""}</span>`;
+        }
+      }
 
       const cfg = {
         none: { label: "Не отмечен", icon: "⬜", cls: "status-none" },
@@ -745,10 +852,15 @@
           <div class="student-info">
             <span class="student-name">${st.name}</span>
             <span class="student-meta">${st.birth} г.р.</span>
+            ${perfBadge}
+            ${hasExtra ? `<span style="font-size:11px; color:#c084fc; margin-top:2px;">⭐ ${hasExtra}</span>` : ""}
           </div>
-          <div style="display:flex; align-items:center; gap:6px;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <button class="extra-btn" title="${isTest ? "Ввести результат" : "Изменить объём"}" onclick="event.stopPropagation(); editStudentPerformance('${st.id}')">
+              ${isTest ? (custom.result ? "✏️" : "⏱️") : "📊"}
+            </button>
             <button class="extra-btn ${hasExtra ? "active" : ""}" onclick="event.stopPropagation(); toggleExtra('${st.id}')">
-              ${hasExtra ? "⭐ +1" : "+1 доп"}
+              ${hasExtra ? "⭐" : "+1"}
             </button>
             <div class="status-box ${cfg.cls}">
               <span>${cfg.icon}</span>
@@ -807,25 +919,6 @@ function toggleExtra(studentId) {
       renderJournal();
     }
   }
-
-  function addExtraSession() {
-    const group = getCurrentGroup();
-    if (!group) return alert("Сначала создайте группу");
-    const dateStr = prompt("Дата тренировки (напр. 26 ноя (Чт)):", getFormattedToday());
-    if (!dateStr) return;
-    const typeStr = prompt("Место / вид (Вода, Зал, Бассейн):", "Вода • 10 км") || "Тренировка";
-
-    group.sessions.push({
-      id: "ses_" + Date.now(),
-      date: dateStr.trim(),
-      type: typeStr.trim(),
-      marks: {}
-    });
-    currentSessionIndex = group.sessions.length - 1;
-    saveState();
-    renderJournal();
-    renderReport();
-  }
 function generateMonthSchedule() {
     const group = getCurrentGroup();
     if (!group) return alert("Сначала создайте группу");
@@ -881,18 +974,156 @@ function generateMonthSchedule() {
     renderReport();
     alert(`Готово! Добавлено тренировок: ${addedCount}.`);
   }
+ const ENV_CONFIG = {
+    water: { label: "Вода", unit: "км", icon: "🛶" },
+    ergo: { label: "Эргометр", unit: "км", icon: "🚣" },
+    gym: { label: "Зал / ОФП", unit: "ч", icon: "🏋️" },
+    cardio: { label: "Лыжи / Бег", unit: "км", icon: "🎿" },
+    pool: { label: "Бассейн", unit: "ч", icon: "🏊" },
+    test: { label: "Контрольная", unit: "", icon: "⏱️" }
+  };
+
+  let modalMode = "create"; // "create" или "edit"
+
+  function toggleModalTestFields() {
+    const env = document.getElementById("modalSessionEnv").value;
+    const isTest = (env === "test");
+    document.getElementById("modalVolumeWrap").classList.toggle("hidden", isTest);
+    document.getElementById("modalTestWrap").classList.toggle("hidden", !isTest);
+    if (!isTest && ENV_CONFIG[env]) {
+      document.getElementById("modalVolumeLabel").innerText = `Плановый объём группы (${ENV_CONFIG[env].unit})`;
+    }
+  }
+
+  function addExtraSession() {
+    const group = getCurrentGroup();
+    if (!group) return alert("Сначала создайте группу");
+    modalMode = "create";
+    document.getElementById("sessionModalTitle").innerText = "Новая тренировка / прикидка";
+    document.getElementById("modalSessionDate").value = getFormattedToday();
+    document.getElementById("modalSessionEnv").value = "water";
+    document.getElementById("modalSessionVolume").value = "";
+    document.getElementById("modalSessionTestName").value = "";
+    document.getElementById("modalSessionNote").value = "";
+    toggleModalTestFields();
+    document.getElementById("sessionModal").classList.remove("hidden");
+  }
+
   function editCurrentSession() {
     const group = getCurrentGroup();
     if (!group || !group.sessions.length) return;
     const session = group.sessions[currentSessionIndex];
+    modalMode = "edit";
+    document.getElementById("sessionModalTitle").innerText = "Редактировать тренировку";
+    document.getElementById("modalSessionDate").value = session.date;
+    document.getElementById("modalSessionEnv").value = session.env || "water";
+    document.getElementById("modalSessionVolume").value = session.volume || "";
+    document.getElementById("modalSessionTestName").value = session.testName || "";
+    document.getElementById("modalSessionNote").value = session.note || "";
+    toggleModalTestFields();
+    document.getElementById("sessionModal").classList.remove("hidden");
+  }
 
-    const newDate = prompt("Изменить дату тренировки:", session.date);
-    if (newDate === null) return;
-    const newType = prompt("Изменить место / тип тренировки:", session.type);
-    if (newType === null) return;
+  function closeSessionModal(e) {
+    if (e.target.id === "sessionModal") {
+      document.getElementById("sessionModal").classList.add("hidden");
+    }
+  }
 
-    if (newDate.trim()) session.date = newDate.trim();
-    if (newType.trim()) session.type = newType.trim();
+  function saveSessionModal() {
+    const group = getCurrentGroup();
+    if (!group) return;
+
+    const dateVal = document.getElementById("modalSessionDate").value.trim();
+    if (!dateVal) return alert("Укажите дату тренировки");
+
+    const envVal = document.getElementById("modalSessionEnv").value;
+    const volVal = parseFloat(document.getElementById("modalSessionVolume").value) || 0;
+    const testNameVal = document.getElementById("modalSessionTestName").value.trim();
+    const noteVal = document.getElementById("modalSessionNote").value.trim();
+
+    if (envVal === "test" && !testNameVal) {
+      return alert("Укажите название дистанции или упражнения (например, 500 м или Жим лёжа)");
+    }
+
+    const envCfg = ENV_CONFIG[envVal];
+    let displayType = `${envCfg.icon} ${envCfg.label}`;
+    if (envVal === "test") {
+      displayType = `⏱️ Прикидка: ${testNameVal}`;
+    } else if (volVal > 0) {
+      displayType += ` • ${volVal} ${envCfg.unit}`;
+    }
+    if (noteVal) displayType += ` (${noteVal})`;
+
+    if (modalMode === "create") {
+      group.sessions.push({
+        id: "ses_" + Date.now(),
+        date: dateVal,
+        type: displayType,
+        env: envVal,
+        volume: envVal === "test" ? 0 : volVal,
+        testName: envVal === "test" ? testNameVal : "",
+        note: noteVal,
+        marks: {},
+        customData: {} // Индивидуальные объёмы или результаты тестов: { studentId: { vol: 8, result: "1:54.2" } }
+      });
+      currentSessionIndex = group.sessions.length - 1;
+    } else {
+      const session = group.sessions[currentSessionIndex];
+      session.date = dateVal;
+      session.type = displayType;
+      session.env = envVal;
+      session.volume = envVal === "test" ? 0 : volVal;
+      session.testName = envVal === "test" ? testNameVal : "";
+      session.note = noteVal;
+    }
+
+    document.getElementById("sessionModal").classList.add("hidden");
+    saveState();
+    renderJournal();
+    renderReport();
+  }
+
+  // Ввод индивидуального объёма или результата контрольной для конкретного ученика
+  function editStudentPerformance(studentId) {
+    const group = getCurrentGroup();
+    const session = group.sessions[currentSessionIndex];
+    const student = group.students.find(s => s.id === studentId);
+    if (!session || !student) return;
+
+    if (!session.customData) session.customData = {};
+    const current = session.customData[studentId] || {};
+    const isTest = (session.env === "test");
+
+    if (isTest) {
+      const res = prompt(`Результат для «${student.name}»\n(${session.testName || "Контрольная"}):`, current.result || "");
+      if (res === null) return;
+      if (res.trim()) {
+        session.customData[studentId] = { ...current, result: res.trim() };
+        session.marks[studentId] = "present"; // Автоматически ставим "Был" при вводе результата
+      } else {
+        delete session.customData[studentId];
+      }
+    } else {
+      const envCfg = ENV_CONFIG[session.env || "water"] || { unit: "км" };
+      const defaultVol = current.vol !== undefined ? current.vol : (session.volume || "");
+      const volInput = prompt(
+        `Индивидуальный объём (${envCfg.unit}) для «${student.name}»:\n(Оставьте пустым для стандартного объёма группы: ${session.volume || 0} ${envCfg.unit})`,
+        defaultVol
+      );
+      if (volInput === null) return;
+      if (volInput.trim() === "") {
+        delete session.customData[studentId];
+      } else {
+        const parsed = parseFloat(volInput.replace(",", "."));
+        if (!isNaN(parsed)) {
+          session.customData[studentId] = { ...current, vol: parsed };
+          if (!session.marks[studentId] || session.marks[studentId] === "none") {
+            session.marks[studentId] = "present";
+          }
+        }
+      }
+    }
 
     saveState();
     renderJournal();
@@ -953,22 +1184,53 @@ function generateMonthSchedule() {
     return group.sessions.filter(s => getSessionMonthKey(s.date) === selected);
   }
 
-  function renderReport() {
+ function renderReport() {
     const group = getCurrentGroup();
     if (!group) return;
 
     const sessions = getFilteredSessions(group);
     const filterEl = document.getElementById("reportMonthFilter");
+    const modeEl = document.getElementById("reportModeSelect");
+    const mode = modeEl ? modeEl.value : "attendance";
+
     const periodLabel = (filterEl && filterEl.value !== "all") ? MONTH_NAMES[filterEl.value] : state.activeYear;
     document.getElementById("reportGroupTitle").innerText = `Табель: ${group.name} (${periodLabel})`;
 
+    // РЕЖИМ 2: Сводная таблица всех контрольных прикидок и нормативов ОФП
+    if (mode === "tests") {
+      const testSessions = sessions.filter(s => s.env === "test");
+      if (!testSessions.length) {
+        document.getElementById("reportTable").innerHTML = `<tr><td style="padding:16px; text-align:center; color:var(--hint);">За выбранный период контрольных тренировок не было</td></tr>`;
+        return;
+      }
+
+      let thead = `<tr><th>Спортсмен</th>` +
+        testSessions.map(s => `<th>${s.testName || "Тест"}<br><small style="color:var(--hint); font-weight:400;">${s.date}</small></th>`).join("") +
+        `</tr>`;
+
+      let tbody = group.students.map(st => {
+        const cells = testSessions.map(s => {
+          const res = s.customData && s.customData[st.id] && s.customData[st.id].result;
+          return `<td>${res ? `<strong style="color:var(--orange);">${res}</strong>` : "—"}</td>`;
+        }).join("");
+        return `<tr><td>${st.name}</td>${cells}</tr>`;
+      }).join("");
+
+      document.getElementById("reportTable").innerHTML = thead + tbody;
+      return;
+    }
+
+    // РЕЖИМ 1: Посещаемость + суммарные объёмы (Вода км, Эрго км, Зал/Бассейн ч)
     let thead = `<tr><th>Спортсмен</th>` +
       sessions.map(s => `<th>${s.date.split(" ")[0]}<br><small>${s.date.split(" ")[1] || ""}</small></th>`).join("") +
-      `<th>Доп.</th><th>Итого</th><th>%</th></tr>`;
+      `<th>Доп.</th><th>Итого</th><th>%</th><th>Вода</th><th>Эрго</th><th>ОФП/ч</th></tr>`;
 
     let tbody = group.students.map(st => {
       let attended = 0;
       let extraCount = 0;
+      let waterKm = 0;
+      let ergoKm = 0;
+      let otherHours = 0;
 
       const cells = sessions.map(s => {
         const m = s.marks[st.id];
@@ -976,9 +1238,23 @@ function generateMonthSchedule() {
         if (hasExtra) extraCount++;
 
         let markSymbol = "·";
-        if (m === "present") { attended++; markSymbol = "✅"; }
-        else if (m === "absent") { markSymbol = "❌"; }
-        else if (m === "sick") { markSymbol = "🤒"; }
+        if (m === "present") {
+          attended++;
+          markSymbol = s.env === "test" ? "⏱️" : "✅";
+
+          // Считаем объём спортсмена за эту тренировку
+          const custom = (s.customData && s.customData[st.id]) || {};
+          const vol = custom.vol !== undefined ? custom.vol : (s.volume || 0);
+          if (vol > 0) {
+            if (!s.env || s.env === "water" || s.env === "cardio") waterKm += vol;
+            else if (s.env === "ergo") ergoKm += vol;
+            else if (s.env === "gym" || s.env === "pool") otherHours += vol;
+          }
+        } else if (m === "absent") {
+          markSymbol = "❌";
+        } else if (m === "sick") {
+          markSymbol = "🤒";
+        }
 
         return `<td>${markSymbol}${hasExtra ? "<sup style='color:#c084fc'>+1</sup>" : ""}</td>`;
       }).join("");
@@ -992,12 +1268,69 @@ function generateMonthSchedule() {
         <td style="color:#c084fc; font-weight:600;">${extraCount ? "+" + extraCount : "0"}</td>
         <td><strong>${totalAll}</strong></td>
         <td><strong>${pct}%</strong></td>
+        <td style="color:#60a5fa;">${waterKm ? Math.round(waterKm * 10) / 10 + " км" : "—"}</td>
+        <td style="color:#34d399;">${ergoKm ? Math.round(ergoKm * 10) / 10 + " км" : "—"}</td>
+        <td style="color:#fbbf24;">${otherHours ? Math.round(otherHours * 10) / 10 + " ч" : "—"}</td>
       </tr>`;
     }).join("");
 
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
+  function exportCSV() {
+    const group = getCurrentGroup();
+    if (!group) return;
+
+    const sessions = getFilteredSessions(group);
+    const filterEl = document.getElementById("reportMonthFilter");
+    const modeEl = document.getElementById("reportModeSelect");
+    const mode = modeEl ? modeEl.value : "attendance";
+    const periodLabel = (filterEl && filterEl.value !== "all") ? MONTH_NAMES[filterEl.value] : state.activeYear;
+
+    if (mode === "tests") {
+      const testSessions = sessions.filter(s => s.env === "test");
+      let csv = "\uFEFFСпортсмен;" + testSessions.map(s => `${s.testName} (${s.date})`).join(";") + "\n";
+      group.students.forEach(st => {
+        const row = testSessions.map(s => (s.customData && s.customData[st.id] && s.customData[st.id].result) || "");
+        csv += `${st.name};${row.join(";")}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Нормативы_${group.name}_${periodLabel}.csv`;
+      link.click();
+      return;
+    }
+
+    let csv = "\uFEFFСпортсмен;" + sessions.map(s => s.date).join(";") + ";Доп. тр;Итого;Вода (км);Эргометр (км);ОФП/Бассейн (ч)\n";
+    group.students.forEach(st => {
+      let attended = 0, extraCount = 0, waterKm = 0, ergoKm = 0, otherHours = 0;
+      const row = sessions.map(s => {
+        const m = s.marks[st.id];
+        const hasExtra = s.extras && s.extras[st.id];
+        if (m === "present") {
+          attended++;
+          const custom = (s.customData && s.customData[st.id]) || {};
+          const vol = custom.vol !== undefined ? custom.vol : (s.volume || 0);
+          if (vol > 0) {
+            if (!s.env || s.env === "water" || s.env === "cardio") waterKm += vol;
+            else if (s.env === "ergo") ergoKm += vol;
+            else if (s.env === "gym" || s.env === "pool") otherHours += vol;
+          }
+        }
+        if (hasExtra) extraCount++;
+        const base = m === "present" ? "Был" : m === "absent" ? "Н" : m === "sick" ? "Б" : "";
+        return hasExtra ? (base ? `${base} (+1)` : "+1") : base;
+      });
+      csv += `${st.name};${row.join(";")};${extraCount};${attended + extraCount};${waterKm};${ergoKm};${otherHours}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Табель_Объёмы_${group.name}_${periodLabel}.csv`;
+    link.click();
+  }
   function exportCSV() {
     const group = getCurrentGroup();
     if (!group) return;
