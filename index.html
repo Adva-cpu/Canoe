@@ -683,7 +683,7 @@
   // ==========================================
   const SUPABASE_URL = "https://egpminbmdimdrnofsiqh.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVncG1pbmJtZGltZHJub2ZzaXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDM1OTYsImV4cCI6MjExMTExOTU5Nn0.iicrPN8eU8A2CJNo-I6QYecMED1h8Kx83LI4hf1Z5mI";
-
+  const BOT_TOKEN = "7646844189:AAGAsQyEGjPYwQWm_JL5emPBnrrJALolcGk";
   // ==========================================
   // ЗАЩИТА ДОСТУПА ПО TELEGRAM ID
   // ==========================================
@@ -1401,14 +1401,37 @@
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
-  function saveOrShareFile(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
-  }
+  async function saveOrShareFile(content, filename, mimeType) {
+    if (!BOT_TOKEN || BOT_TOKEN === "СЮДА_ВСТАВЬ_ТОКЕН_БОТА") {
+      return alert("⚠️ Сначала впишите BOT_TOKEN в код приложения!");
+    }
 
+    setSyncStatus("⏳ Отправка файла в чат...", "#60a5fa");
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const formData = new FormData();
+      formData.append("chat_id", currentUserId);
+      formData.append("document", blob, filename);
+      formData.append("caption", `📄 ${filename}`);
+
+      const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+        method: "POST",
+        body: formData
+      });
+      const resJson = await resp.json();
+
+      if (resJson.ok) {
+        setSyncStatus("☁️ Синхронизировано", "var(--green)");
+        alert(`✅ Файл «${filename}» отправлен вам в чат с ботом!`);
+      } else {
+        setSyncStatus("⚠️ Ошибка отправки", "var(--red)");
+        alert(`Ошибка Telegram: ${resJson.description}`);
+      }
+    } catch (err) {
+      setSyncStatus("⚠️ Ошибка сети", "var(--red)");
+      alert("Не удалось отправить файл. Проверьте интернет.");
+    }
+  }
   function exportCSV() {
     const group = getCurrentGroup();
     if (!group) return;
