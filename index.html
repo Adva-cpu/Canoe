@@ -456,7 +456,7 @@
   <div class="header">
     <div class="header-top">
       <div class="app-title">
-        <span>🛶 Каноэ • Журнал v2</span>
+        <span>🛶 Каноэ • Журнал v3</span>
         <span id="syncStatus" class="sync-status">⏳ Загрузка из облака...</span>
       </div>
       <div class="header-controls">
@@ -588,7 +588,7 @@
     <div class="card-box">
       <h3>Резервная копия данных</h3>
       <p style="font-size:13px; color:var(--hint); margin-top:0;">
-        Сохраните копию всех групп, посещаемости и тестов на телефон, чтобы не потерять данные при случайном удалении.
+        Сохраните копию всех групп, посещаемости и тестов, чтобы не потерять данные при случайном удалении.
       </p>
       <div class="row-2col">
         <button class="btn-secondary" onclick="downloadBackup()">💾 Скачать (JSON)</button>
@@ -677,29 +677,12 @@
     </div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО ЭКСПОРТА (КОПИРОВАНИЕ ИЛИ ОТПРАВКА) -->
-  <div id="exportFallbackModal" class="modal-overlay hidden" onclick="if(event.target.id==='exportFallbackModal') this.classList.add('hidden')">
-    <div class="modal-card" onclick="event.stopPropagation()">
-      <h3 id="exportFallbackTitle">Экспорт данных</h3>
-      <p style="font-size:12px; color:var(--hint); margin-top:0;">
-        Нажмите «Скопировать», чтобы вставить таблицу в заметки/Excel, или «Файлом» для отправки через меню телефона:
-      </p>
-      <textarea id="exportFallbackText" class="input-field" rows="6" readonly style="font-family:monospace; font-size:11px; resize:none;"></textarea>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="document.getElementById('exportFallbackModal').classList.add('hidden')">Закрыть</button>
-        <button class="btn-secondary" onclick="tryNativeShare()">📤 Файлом</button>
-        <button class="btn-primary" style="flex:1;" onclick="copyExportFallback()">📋 Скопировать</button>
-      </div>
-    </div>
-  </div>
-
 <script>
   // ==========================================
-  // НАСТРОЙКИ SUPABASE И БОТА
+  // НАСТРОЙКИ SUPABASE
   // ==========================================
   const SUPABASE_URL = "https://egpminbmdimdrnofsiqh.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVncG1pbmJtZGltZHJub2ZzaXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDM1OTYsImV4cCI6MjExMTExOTU5Nn0.iicrPN8eU8A2CJNo-I6QYecMED1h8Kx83LI4hf1Z5mI";
-  const BOT_TOKEN = "ВСТАВЬ_ТОКЕН_БОТА"; // Токен из @BotFather, чтобы бот сам присылал Excel и JSON в чат
 
   // ==========================================
   // ЗАЩИТА ДОСТУПА ПО TELEGRAM ID
@@ -1418,9 +1401,7 @@
     document.getElementById("reportTable").innerHTML = thead + tbody;
   }
 
-  let lastExportData = { content: "", filename: "", mimeType: "" };
-
- function saveOrShareFile(content, filename, mimeType) {
+  function saveOrShareFile(content, filename, mimeType) {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
